@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: hydro-backend
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+security-code:
+  secret: ${SECURITY_CODE_SECRET} # used to store security codes in encrypted form
+jwt:
+  secret: ${JWT_SECRET}
+  expiration-ms: 3600000 # 1 hour
+  refresh-expiration-ms: 86400000 # 24 hours
+
+device:
+  secret: ${DEVICE_SECRET}
+
+springdoc:
+  swagger-ui:
+    path: /docs
+    url: http://localhost:8080/v3/api-docs
+
+server:
+  forward-headers-strategy: framework
+  servlet:
+    context-path: /
