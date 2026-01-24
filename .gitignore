@@ -1,4 +1,4 @@
-HELP.md
+JOURNAL.md
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
@@ -32,3 +32,23 @@ build/
 
 ### VS Code ###
 .vscode/
+hydro-backend.tar
+
+### Keys ###
+*.jks
+*.key
+*.pub
+*.pem
+*.p12
+*.der
+
+### Dev database files ###
+*.mv.db
+*.trace.db
+
+### Env files ###
+.env
+.env.test
+.env.production
+.env.development
+.env.local
