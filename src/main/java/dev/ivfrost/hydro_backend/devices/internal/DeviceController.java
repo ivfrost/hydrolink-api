@@ -56,7 +56,7 @@ public class DeviceController {
   @Hidden
   @PreAuthorize("hasRole('ADMIN')")
   @GetMapping("/users/{userId}/devices")
-  @Operation(summary = "Get devices by user ID (Admin only)",
+  @Operation(summary = "Retrieve devices by user ID (Admin only)",
       description = "Retrieves all devices linked to a specific user by their unique ID.")
   public ResponseEntity<ApiResponse<List<DeviceResponse>>> getUserDevicesById(
       @PathVariable Long userId) {

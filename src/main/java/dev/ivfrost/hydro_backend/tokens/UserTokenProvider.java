@@ -10,7 +10,7 @@ public interface UserTokenProvider {
 
   List<TokenResponse> generateRecoveryTokens(long userId);
 
-  List<TokenResponse> generateAccessTokens(TokenPayload payload);
+  List<TokenResponse> generateAccessAndRefreshTokens(TokenPayload payload);
 
   TokenResponse generateMqttToken(MqttTokenPayload payload);
 

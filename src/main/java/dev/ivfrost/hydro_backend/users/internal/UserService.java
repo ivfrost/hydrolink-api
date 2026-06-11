@@ -15,7 +15,6 @@ import dev.ivfrost.hydro_backend.devices.UserDeviceProvider;
 import dev.ivfrost.hydro_backend.users.UserDisabledException;
 import dev.ivfrost.hydro_backend.users.UserMqttResponse;
 import dev.ivfrost.hydro_backend.users.UserRecoveryRequest;
-import dev.ivfrost.hydro_backend.users.UserRefreshRequest;
 import dev.ivfrost.hydro_backend.users.UserRegisterRequest;
 import dev.ivfrost.hydro_backend.users.UserRegisterResponse;
 import dev.ivfrost.hydro_backend.users.UserResponse;
@@ -55,7 +54,7 @@ public class UserService {
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
   private final JWTUtil jwtUtil;
-  private final DeviceTopicProvider userDeviceTopicProvider;
+  private final DeviceTopicProvider deviceTopicProvider;
   private final UserTokenProvider userTokenProvider;
   private final RedisTemplate<Object, Object> redisTemplate;
   private final ApplicationEventPublisher events;
@@ -70,7 +69,7 @@ public class UserService {
    * @param req the user authentication request DTO
    * @return a list of {@link TokenResponse} containing access and refresh tokens
    * @throws AuthenticationCredentialsNotFoundException if the user is not found
-   * @throws DisabledException                          if the user is disabled
+   * @throws UserDisabledException                          if the user is disabled
    * @throws BadCredentialsException                    if the password is incorrect
    */
   List<TokenResponse> authenticateUser(UserAuthRequest req) {
@@ -80,18 +79,18 @@ public class UserService {
     if (userOpt.isEmpty()) {
       log.debug("User not found with email: {}", email);
       throw new AuthenticationCredentialsNotFoundException(
-          "Either email or password is incorrect.");
+          "Invalid credentials");
     }
     User user = userOpt.get();
     log.debug("Authenticating user with email: {}", email);
     if (!user.isEnabled()) {
-      throw new DisabledException(email);
+      throw new UserDisabledException(email);
     }
     if (!passwordEncoder.matches(password, user.getPassword())) {
       log.debug("Password mismatch for user with email: {}", email);
-      throw new BadCredentialsException("Either email or password is incorrect.");
+      throw new BadCredentialsException("Invalid credentials");
     }
-    return userTokenProvider.generateAccessTokens(new TokenPayload(
+    return userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
         user.getUsername(),
         user.getEmail(),
         user.getRoles().stream().map(Enum::name).toList(),
@@ -318,22 +317,22 @@ public class UserService {
   /**
    * Refreshes access and refresh tokens using a valid refresh token.
    *
-   * @param req the user refresh request DTO containing the refresh token
+   * @param refreshToken the refresh token to validate and use for generating new tokens
    * @return a list of {@link TokenResponse} containing new access and refresh tokens
    * @throws BadCredentialsException if the refresh token does not belong to the authenticated user
    */
-  List<TokenResponse> refreshTokens(UserRefreshRequest req) {
+  List<TokenResponse> refreshTokens(String refreshToken) {
     User user = getCurrentUser();
 
     Map<String, Claim> claims = userTokenProvider.validateTokenAndRetrieveClaims(
-        req.refreshToken());
+        refreshToken);
     Long tokenUserId = claims.get("userId").asLong();
 
     if (!user.getId().equals(tokenUserId)) {
       throw new BadCredentialsException("Refresh token does not belong to authenticated user");
     }
 
-    return userTokenProvider.generateAccessTokens(new TokenPayload(
+    return userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
         user.getUsername(),
         user.getEmail(),
         user.getRoles().stream().map(Enum::name).toList(),
@@ -350,7 +349,7 @@ public class UserService {
    */
   UserMqttResponse getMqttAuthToken() throws AuthenticationCredentialsNotFoundException {
     User user = getCurrentUser();
-    List<String> topics = userDeviceTopicProvider.getTopicsForUser(user.getId());
+    List<String> topics = deviceTopicProvider.getTopicsForUser(user.getId());
     log.debug("Retrieved {} topics for user {}: {}", topics.size(), user.getId(), topics);
     return new UserMqttResponse(user.getId(), jwtUtil.generateMqttToken(new MqttTokenPayload(
         user.getId(),

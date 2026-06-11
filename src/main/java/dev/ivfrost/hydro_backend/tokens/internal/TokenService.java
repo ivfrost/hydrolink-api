@@ -31,7 +31,7 @@ public class TokenService {
     return true;
   }
 
-  public List<TokenResponse> generateAccessTokens(TokenPayload payload) {
+  public List<TokenResponse> generateAccessAndRefreshTokens(TokenPayload payload) {
     return List.of(
         new TokenResponse(
             jWTUtil.generateAccessToken(payload),

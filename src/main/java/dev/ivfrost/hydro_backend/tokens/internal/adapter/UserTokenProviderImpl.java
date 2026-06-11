@@ -30,8 +30,8 @@ public class UserTokenProviderImpl implements UserTokenProvider {
   }
 
   @Override
-  public List<TokenResponse> generateAccessTokens(TokenPayload payload) {
-    return tokenService.generateAccessTokens(payload);
+  public List<TokenResponse> generateAccessAndRefreshTokens(TokenPayload payload) {
+    return tokenService.generateAccessAndRefreshTokens(payload);
   }
 
   @Override

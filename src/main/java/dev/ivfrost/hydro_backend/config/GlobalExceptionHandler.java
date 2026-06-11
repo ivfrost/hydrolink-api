@@ -31,7 +31,8 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiResponse<Void>> handleUserDisabledException(
       UserDisabledException ex) {
     return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-        .body(ApiResponse.error(HttpStatus.UNAUTHORIZED, ex.getMessage()));
+        // Don't expose the reason for authentication failure to prevent user enumeration attacks
+        .body(ApiResponse.error(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
   }
 
   @ExceptionHandler(AuthenticationCredentialsNotFoundException.class)
