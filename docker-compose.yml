@@ -24,14 +24,21 @@ services:
     networks:
       - hydro-network
 
-  mosquitto:
-    build:
-      context: ./mosquitto
-    container_name: mosquitto_dev
+  nanomq:
+    image: emqx/nanomq:latest
+    container_name: nanomq_dev
+    restart: unless-stopped
     ports:
-      - '1883:1883'
+      - "1883:1883"
+      - "8883:8883"
+      - "8083:8083"
+    volumes:
+      - ./nanomq.conf:/usr/local/nanomq/nanomq.conf
+      - ./mqtt_public_key.pem:/etc/mqtt_public_key.pem
     networks:
       - hydro-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   rabbitmq:
     image: rabbitmq:3-management-alpine

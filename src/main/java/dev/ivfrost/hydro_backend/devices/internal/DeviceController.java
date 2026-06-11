@@ -9,6 +9,7 @@ import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.tokens.DeviceTokenResponse;
+import dev.ivfrost.hydro_backend.tokens.JWTUtil;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,6 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class DeviceController {
 
   private final DeviceService deviceService;
+  private final JWTUtil jwtUtil;
 
   @Hidden
   @PreAuthorize("hasRole('ADMIN')")
@@ -65,7 +67,6 @@ public class DeviceController {
             deviceService.getDevicesByUserId(userId)));
   }
 
-  @Hidden
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Get all provisioned devices (Admin only)",
       description = "Retrieves all devices provisioned in the system.")
@@ -204,5 +205,36 @@ public class DeviceController {
   private Long currentUserId() {
     return Long.parseLong(SecurityContextHolder.getContext().getAuthentication().getName());
   }
+
+  // Webhooks for MQTT broker authorization and ACL checks
+  @Hidden
+  @PostMapping("/internal/mqtt/auth")
+  public ResponseEntity<Map<String, Object>> verifyMqttConnection(@RequestBody MqttAuthRequest req) {
+    try {
+      jwtUtil.validateMqttToken(req.password());
+      return ResponseEntity.ok(Map.of("result", "allow"));
+    } catch (Exception e) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("result", "deny"));
+    }
+  }
+
+  @Hidden
+  @PostMapping("/internal/mqtt/acl")
+  public ResponseEntity<Map<String, Object>> verifyMqttAcl(@RequestBody MqttAclRequest req) {
+    try {
+      boolean allowed = jwtUtil.validateMqttAcl(req.password(), req.topic(), req.action());
+      if (allowed) {
+        return ResponseEntity.ok(Map.of("result", "allow"));
+      }
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("result", "deny"));
+    } catch (Exception e) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("result", "deny"));
+    }
+  }
+
+  public record MqttAuthRequest(String username, String password, String clientid) {}
+  public record MqttAclRequest(String username, String clientid, String topic, int action, String password) {}
+
+
 }
 
