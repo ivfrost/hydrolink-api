@@ -1,13 +1,18 @@
 package dev.ivfrost.hydro_backend.config;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.util.AntPathMatcher;
 
-
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class EndpointRegistry {
 
-  static final List<String> APP_PUBLIC = List.of(
+  private static final List<String> APP_PUBLIC = List.of(
       "/v1/users",
       "/v1/users/auth",
       "/v1/users/recover",
@@ -16,36 +21,42 @@ public class EndpointRegistry {
       "/v1/validation/**",
       "/actuator/**"
   );
-  static final List<String> SWAGGER = List.of(
-      "/v3/api-docs",
-      "/v3/api-docs/**",
+  private static final List<String> SWAGGER = List.of(
       "/swagger-ui.html",
-      "/swagger-ui/**"
+      "/swagger-ui/**",
+      "/api-docs",
+      "/api-docs/**",
+      "/api-docs-json",
+      "/api-docs-json/**"
   );
-  static final List<String> APP_AUTHENTICATED = List.of(
+  private static final List<String> APP_AUTHENTICATED = List.of(
       "/v1/users/**",
       "/v1/me/**",
-      "/v1/files/**", // !TODO: make this user specific
       "/v1/users/auth/refresh"
   );
-  static final List<String> H2_CONSOLE = List.of(
+  private static final List<String> H2_CONSOLE = List.of(
       "/h2-console/**",
       "/h2-console"
   );
+
   private static final AntPathMatcher pathMatcher = new AntPathMatcher();
-  private static final List<String> PUBLIC_ENDPOINTS;
 
-  static {
-    PUBLIC_ENDPOINTS = Stream.of(APP_PUBLIC, SWAGGER, H2_CONSOLE)
-        .flatMap(List::stream)
-        .toList();
+  public static String[] getPublicEndpoints(Environment env) {
+    Stream<List<String>> base = Stream.of(APP_PUBLIC);
+
+    if (env.acceptsProfiles(Profiles.of("dev"))) {
+      base = Stream.concat(base, Stream.of(SWAGGER, H2_CONSOLE));
+    }
+
+    return base.flatMap(List::stream).toArray(String[]::new);
   }
 
-  private EndpointRegistry() {
-
+  public static boolean isPublicEndpoint(String path, Environment env) {
+    return Arrays.stream(getPublicEndpoints(env))
+        .anyMatch(pattern -> pathMatcher.match(pattern, path));
   }
 
-  public static boolean isPublicEndpoint(String path) {
-    return PUBLIC_ENDPOINTS.stream().anyMatch(pattern -> pathMatcher.match(pattern, path));
+  public static String[] getAuthenticatedEndpoints() {
+    return APP_AUTHENTICATED.toArray(new String[0]);
   }
 }

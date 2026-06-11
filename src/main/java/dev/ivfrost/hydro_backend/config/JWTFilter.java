@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -30,6 +31,7 @@ public class JWTFilter extends OncePerRequestFilter {
   private final UserDetailsService userDetailsService;
   private final JWTUtil jwtUtil;
   private final ApplicationEventPublisher events;
+  private final Environment environment;
 
   @Override
   protected void doFilterInternal(HttpServletRequest request,
@@ -40,7 +42,7 @@ public class JWTFilter extends OncePerRequestFilter {
     log.trace("JWTFilter processing path: {}", path);
 
     // Bypass filter for authentication and validation endpoints
-    if (EndpointRegistry.isPublicEndpoint(path)) {
+    if (EndpointRegistry.isPublicEndpoint(path, environment)) {
       log.debug("Bypassing JWTFilter for public path: {}", path);
       filterChain.doFilter(request, response);
       return;
@@ -83,7 +85,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
         if (!userDetails.isEnabled()) {
           log.info("Rejected authentication for disabled/deleted user id: {}", userId);
-          response.sendError(HttpServletResponse.SC_FORBIDDEN, "User account is disabled");
+          response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid credentials");
           return;
         }
 

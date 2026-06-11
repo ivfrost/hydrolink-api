@@ -1,75 +1,49 @@
 services:
-  #  api:
-  #    build:
-  #      context: .
-  #      args:
-  #        CACHEBUST: $(date +%s)
-  #    ports:
-  #      - '8080:8080'
-  #    environment:
-  #      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/postgres
-  #      SPRING_DATA_REDIS_HOST: redis
-  #      VAULT_URI: ${VAULT_URI}
-  #      VAULT_ROLE_ID: ${VAULT_ROLE_ID}
-  #      VAULT_SECRET_ID: ${VAULT_SECRET_ID}
-  #      JWT_REFRESH_EXPIRATION_MS: 2592000000
-  #      JWT_ACCESS_EXPIRATION_MS: 900000
-  #      MQTT_JWT_PRIVATE_KEY_PATH: /app/private_key.der
-  #      SPRING_PROFILES_ACTIVE: dev
-  #      SERVER_PORT: 8080
-  #      SPRING_RABBITMQ_HOST: rabbitmq
-  #      SPRING_RABBITMQ_PORT: 5672
-  #      SPRING_RABBITMQ_USERNAME: myuser
-  #      SPRING_RABBITMQ_PASSWORD: supersecret
-  #    volumes:
-  #      - ./private_key.der:/app/private_key.der:ro,z
-  #    depends_on:
-  #      - postgres
-  #      - mosquitto
-  #      - redis
-  #    networks:
-  #      - hydro-network
-
   postgres:
     image: postgres:16
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+    container_name: postgres_dev
     environment:
       POSTGRES_USER: admin
-      POSTGRES_PASSWORD: supersecret
-      POSTGRES_DB: hydrodb
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: hydrodb-dev
     ports:
       - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     networks:
       - hydro-network
 
   redis:
-    image: redis:latest
-    restart: always
+    image: redis:7-alpine
+    container_name: redis_dev
+    command: redis-server --loglevel verbose
     ports:
       - '6379:6379'
-    command: redis-server --save 20 1 --loglevel warning --requirepass supersecret
     volumes:
       - cache:/data
     networks:
       - hydro-network
-  
+
   mosquitto:
     build:
       context: ./mosquitto
+    container_name: mosquitto_dev
     ports:
       - '1883:1883'
     networks:
       - hydro-network
 
-
   rabbitmq:
-    image: 'rabbitmq:latest'
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq_dev
     environment:
-      RABBITMQ_DEFAULT_USER: myuser
-      RABBITMQ_DEFAULT_PASS: supersecret
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password
     ports:
       - '5672:5672'
+      - '15672:15672'
+    networks:
+      - hydro-network
 
 volumes:
   pgdata:

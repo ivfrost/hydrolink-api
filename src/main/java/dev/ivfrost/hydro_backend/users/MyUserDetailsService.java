@@ -15,7 +15,10 @@ public class MyUserDetailsService implements UserDetailsService {
 
   private final UserRepository userRepository;
 
-  public UserDetails loadUserByUsername(@NonNull String idString) {
+  // Despite this being a contract meant for username-based authentication, we will use the
+  // user ID as the "username" for JWT-based authentication.
+  @Override
+  public @NonNull UserDetails loadUserByUsername(@NonNull String idString) {
     Long id = Long.parseLong(idString);
 
     User user = userRepository.findById(id)

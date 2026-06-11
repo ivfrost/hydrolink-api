@@ -10,9 +10,13 @@ import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -23,6 +27,7 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.stereotype.Component;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -31,39 +36,42 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Slf4j
 @Configuration
 @AllArgsConstructor
+@EnableConfigurationProperties(SecurityConfig.CorsProperties.class)
 @EnableWebSecurity
 public class SecurityConfig {
 
   private final MyUserDetailsService userDetailsService;
   private final JWTUtil jwtUtil;
   private final ApplicationEventPublisher events;
-  @Value("${cors.allowed-origins}")
-  private String[] allowedOrigins;
+
+  @ConfigurationProperties(prefix = "cors")
+  public record CorsProperties(List<String> allowedOrigins) {}
 
   @Bean
-  public SecurityFilterChain securityFilterChain(final HttpSecurity http) throws Exception {
+  public SecurityFilterChain securityFilterChain(final HttpSecurity http, Environment environment) throws Exception {
     log.info("Configuring security filter chain...");
     http.csrf(AbstractHttpConfigurer::disable)
         .httpBasic(HttpBasicConfigurer::disable)
         // Enable CORS
         .cors(withDefaults())
-        // Disable frame options for H2 console in dev
-        .headers(h -> h.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable))
+        // Disable frame options for H2 console in dev -> H2 uses an iframe
+        .headers(h -> {
+          if (environment.acceptsProfiles(Profiles.of("dev"))) {
+            h.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable);
+          }
+        })
         // Run JWTFilter in place of UsernamePasswordAuthenticationFilter
-        .addFilterBefore(new JWTFilter(userDetailsService, jwtUtil, events),
+        .addFilterBefore(new JWTFilter(userDetailsService, jwtUtil, events, environment),
             UsernamePasswordAuthenticationFilter.class)
         .authorizeHttpRequests(req -> req
-            .requestMatchers(EndpointRegistry.H2_CONSOLE.toArray(new String[0]))
+            .requestMatchers(EndpointRegistry.getPublicEndpoints(environment))
             .permitAll()
-            .requestMatchers(EndpointRegistry.SWAGGER.toArray(new String[0]))
-            .permitAll()
-            .requestMatchers(EndpointRegistry.APP_PUBLIC.toArray(new String[0]))
-            .permitAll()
-            .requestMatchers(EndpointRegistry.APP_AUTHENTICATED.toArray(new String[0]))
+            .requestMatchers(EndpointRegistry.getAuthenticatedEndpoints())
             .hasAnyRole("USER", "ADMIN")
             .anyRequest()
             .authenticated())
         .userDetailsService(this.userDetailsService)
+        // Return 401 instead of redirecting to login page for unauthorized requests
         .exceptionHandling(
             e -> e.authenticationEntryPoint(
                 (request, response, authException) ->
@@ -81,11 +89,11 @@ public class SecurityConfig {
   }
 
   // Provide the CorsConfigurationSource bean referenced by http.cors(withDefaults()).
-// Allow front-end to make requests to the API.
+  // Allow front-end to make requests to the API.
   @Bean
-  CorsConfigurationSource corsConfigurationSource() {
+  CorsConfigurationSource corsConfigurationSource(CorsProperties corsProperties) {
     CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOrigins(Arrays.asList(allowedOrigins));
+    configuration.setAllowedOrigins(corsProperties.allowedOrigins());
     configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
     configuration.setAllowedHeaders(List.of("*"));
     configuration.setAllowCredentials(true);
