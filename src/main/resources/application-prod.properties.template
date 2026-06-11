@@ -1,5 +1,6 @@
 spring.config.import=vault://
 spring.main.banner-mode=off
+
 # HashiCorp Vault (provides db credentials, jwt.secret and recovery.secret)
 spring.cloud.vault.uri=${VAULT_URI}
 spring.cloud.vault.authentication=approle
@@ -8,17 +9,26 @@ spring.cloud.vault.kv.backend=secret
 spring.cloud.vault.kv.default-context=hydro-api
 spring.cloud.vault.app-role.role-id=${VAULT_ROLE_ID}
 spring.cloud.vault.app-role.secret-id=${VAULT_SECRET_ID}
+
+# MQTT JWT settings
+mqtt.jwt.private.key.path=${MQTT_PRIVATE_KEY_PATH:}
+
 # Database settings
 spring.datasource.driver-class-name=org.postgresql.Driver
 spring.jpa.show-sql=false
 spring.jpa.hibernate.ddl-auto=validate
+
 # Proxy awareness
 server.forward-headers-strategy=framework
+
 # CORS (Vite)
-cors.allowed-origins=http://192.168.1.214:5173
+cors.allowed-origins=${CORS_ALLOWED_ORIGINS:}
+
 # Disable SwaggerUI
 springdoc.api-docs.enabled=false
 springdoc.swagger-ui.enabled=false
+
 #management.endpoints.health.show-details=never
+
 # Logging
 logging.level.org.springframework=ERROR

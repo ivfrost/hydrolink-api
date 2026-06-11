@@ -19,6 +19,7 @@ public class EndpointRegistry {
       "/v1/users/validate/**",
       "/v1/users/password/reset",
       "/v1/validation/**",
+      "/v1/internal/mqtt/**",
       "/actuator/**"
   );
   private static final List<String> SWAGGER = List.of(

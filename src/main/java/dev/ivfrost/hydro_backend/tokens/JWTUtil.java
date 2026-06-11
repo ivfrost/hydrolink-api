@@ -14,8 +14,10 @@ import java.nio.file.Files;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.RSAPublicKeySpec;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -31,7 +33,8 @@ import org.springframework.stereotype.Component;
 public class JWTUtil {
 
   private static final String AUTH_TOKEN_SUBJECT = "UserDetails";
-  private static final String ISSUER = "HydroAPI";
+  @Value("${jwt.auth.token.issuer}")
+  private String issuer;
   @Value("${jwt.secret}")
   private String jwtSecret;
   @Value("${jwt.access.expiration.ms}")
@@ -42,6 +45,8 @@ public class JWTUtil {
   private String mqttJwtPrivateKeyPath;
   @Value("${mqtt.jwt.expiration.ms}")
   private Long mqttJwtExpirationMs;
+
+  private Algorithm cachedMqttAlgorithm;
 
   // Build JWT token for authentication
   public JWTCreator.Builder buildAccessToken(TokenPayload payload) throws JWTCreationException {
@@ -57,7 +62,7 @@ public class JWTUtil {
         .withClaim("email", payload.email())
         .withClaim("roles", roles)
         .withClaim("preferredLanguage", payload.preferredLanguage())
-        .withIssuer(ISSUER);
+        .withIssuer(issuer);
   }
 
   // Sign auth JWT token with HMAC using SHA-512
@@ -94,8 +99,7 @@ public class JWTUtil {
   }
 
   private Algorithm getMqttAlgorithm() {
-    RSAPrivateKey privateKey = loadPrivateKeyFromFile(mqttJwtPrivateKeyPath);
-    return Algorithm.RSA256(null, privateKey);
+    return getOrInitializeMqttAlgorithm();
   }
 
   // Build JWT token for MQTT authentication
@@ -107,7 +111,7 @@ public class JWTUtil {
         .withSubject(payload.userId().toString())
         .withClaim("subs", payload.topics())
         .withClaim("publ", payload.topics())
-        .withIssuer(ISSUER);
+        .withIssuer(issuer);
   }
 
   // Sign auth MQTT JWT token with RSA using SHA-256
@@ -163,7 +167,7 @@ public class JWTUtil {
     try {
       jwt = JWT.require(getAuthAlgorithm())
           .withSubject(AUTH_TOKEN_SUBJECT)
-          .withIssuer(ISSUER)
+          .withIssuer(issuer)
           .build()
           .verify(token);
     } catch (JWTDecodeException e) {
@@ -204,5 +208,79 @@ public class JWTUtil {
     } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private synchronized Algorithm getOrInitializeMqttAlgorithm() {
+    if (cachedMqttAlgorithm != null) {
+      return cachedMqttAlgorithm;
+    }
+    try {
+      RSAPrivateKey privateKey = loadPrivateKeyFromFile(mqttJwtPrivateKeyPath);
+      // Derive the public key from the private key for signature verification
+      RSAPublicKeySpec publicKeySpec = new RSAPublicKeySpec(
+          privateKey.getModulus(),
+          java.math.BigInteger.valueOf(65537) // Common public exponent for RSA keys
+      );
+      KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+      RSAPublicKey publicKey = (RSAPublicKey) keyFactory.generatePublic(publicKeySpec);
+
+      this.cachedMqttAlgorithm = Algorithm.RSA256(publicKey, privateKey);
+      return this.cachedMqttAlgorithm;
+    } catch (Exception e) {
+      log.error("Failed to initialize MQTT asymmetric engine", e);
+      throw new IllegalStateException("Crypto initialization exception. Cannot verify structural telemetry channels.", e);
+    }
+  }
+
+  private Algorithm getMqttVerificationAlgorithm() {
+    return getOrInitializeMqttAlgorithm();
+  }
+
+  public void validateMqttToken(String token) throws JWTVerificationException {
+    if (token == null || token.isBlank()) {
+      throw new IllegalArgumentException("Token cannot be null or blank");
+    }
+    JWT.require(getMqttVerificationAlgorithm())
+        .withIssuer(issuer)
+        .build()
+        .verify(token);
+  }
+
+  public boolean validateMqttAcl(String token, String topic, int action) {
+    try {
+      if (token == null || token.isBlank()) return false;
+
+      DecodedJWT jwt = JWT.require(getMqttVerificationAlgorithm())
+          .withIssuer(issuer)
+          .build()
+          .verify(token);
+
+      if (action == 1) { // SUBSCRIBE
+        List<String> subs = jwt.getClaim("subs").asList(String.class);
+        return subs != null && subs.stream().anyMatch(rule -> mqttTopicMatch(rule, topic));
+      } else if (action == 2) { // PUBLISH
+        Claim publClaim = jwt.getClaim("publ");
+        List<String> publs = publClaim.asLong() != null || publClaim.asString() != null
+            ? List.of(publClaim.asString())
+            : publClaim.asList(String.class);
+
+        return publs != null && publs.stream().anyMatch(rule -> mqttTopicMatch(rule, topic));
+      }
+      return false;
+    } catch (Exception e) {
+      log.error("MQTT ACL verification failed: {}", e.getMessage());
+      return false;
+    }
+  }
+
+  private boolean mqttTopicMatch(String rule, String topic) {
+    if (rule.equals("#") || rule.equals(topic)) return true;
+    String regex = rule
+        .replace("$", "\\$")
+        .replace(".", "\\.")
+        .replace("/#", "(/.*)?")
+        .replace("+", "[^/]+")
+        .replace("#", ".*");
+    return topic.matches("^" + regex + "$");
   }
 }
