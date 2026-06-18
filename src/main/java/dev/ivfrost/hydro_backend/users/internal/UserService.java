@@ -8,7 +8,6 @@ import dev.ivfrost.hydro_backend.tokens.MqttTokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
 import dev.ivfrost.hydro_backend.tokens.UserTokenProvider;
-import dev.ivfrost.hydro_backend.users.BlobStorageService;
 import dev.ivfrost.hydro_backend.devices.DeviceTopicProvider;
 import dev.ivfrost.hydro_backend.users.UserAuthRequest;
 import dev.ivfrost.hydro_backend.devices.UserDeviceProvider;
@@ -37,7 +36,6 @@ import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -60,7 +58,6 @@ public class UserService {
   private final ApplicationEventPublisher events;
   private final UserDeviceProvider userDeviceProvider;
   private final dev.ivfrost.hydro_backend.devices.DeviceLinkProvider deviceLinkProvider;
-  private final BlobStorageService blobStorageService;
 
 
   /**
@@ -294,15 +291,15 @@ public class UserService {
     if (req.address() != null) {
       user.setAddress(req.address());
     }
-    if (profilePicture != null && !profilePicture.isEmpty()) {
-      String key = null;
-      try {
-        key = blobStorageService.save(profilePicture, userId);
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-      user.setProfilePictureUrl(key);
-    }
+//    if (profilePicture != null && !profilePicture.isEmpty()) {
+//      String key = null;
+//      try {
+//        key = blobStorageService.save(profilePicture, userId);
+//      } catch (IOException e) {
+//        throw new RuntimeException(e);
+//      }
+//      user.setProfilePictureUrl(key);
+//    }
 
     if (req.preferredLanguage() != null && !req.preferredLanguage().isBlank()) {
       user.setPreferredLanguage(req.preferredLanguage());
