@@ -85,7 +85,7 @@ class MqttListenerService {
         log.info("MQTT client connected successfully to {}", mqttBrokerUrl);
         return;
       } catch (MqttException e) {
-        log.warn("MQTT connection attempt {}/{} failed: {}", attempts, maxAttempts, e.getMessage());
+        log.warn("MQTT connection attempt {}/{} failed", attempts, maxAttempts, e);
         if (attempts < maxAttempts) {
           try {
             Thread.sleep(5000);
