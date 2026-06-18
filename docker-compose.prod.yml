@@ -4,43 +4,47 @@ services:
       context: .
       target: production
     restart: on-failure:3
+    ports:
+      - "8080"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       nanomq:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: stage
-      JWT_SECRET: ${JWT_SECRET}
-      RECOVERY_SECRET: ${RECOVERY_SECRET}
-      DEVICE_SECRET: ${DEVICE_SECRET}
-      MQTT_PRIVATE_KEY_B64: ${MQTT_PRIVATE_KEY_B64}
-      MQTT_BROKER_URL: tcp://nanomq:1883
-      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID}
-      MQTT_USERNAME: ${MQTT_USERNAME}
-      MQTT_PASSWORD: ${MQTT_PASSWORD}
-      DB_URL: jdbc:postgresql://postgres:5432/hydrodb
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      REDIS_HOST: redis
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
-      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
-      SEED_API_MQTT_USERNAME: ${SEED_API_MQTT_USERNAME}
-      SEED_API_MQTT_PASSWORD: ${SEED_API_MQTT_PASSWORD}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-stage}
+      JWT_SECRET: ${JWT_SECRET:-${SERVICE_HEX_32_1}}
+      RECOVERY_SECRET: ${RECOVERY_SECRET:-${SERVICE_HEX_32_2}}
+      DEVICE_SECRET: ${DEVICE_SECRET:-${SERVICE_HEX_32_3}}
+      MQTT_PRIVATE_KEY_B64: ${MQTT_PRIVATE_KEY_B64:?}
+      MQTT_BROKER_URL: ${MQTT_BROKER_URL:-mqtt://nanomq:1883}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-hydro-api}
+      MQTT_USERNAME: ${MQTT_USERNAME:-hydro-api-user}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-${SERVICE_HEX_32_4}}
+      DB_URL: ${DB_URL:-postgres:5432/${DB_NAME:-hydrodb-stage}}
+      DB_USERNAME: ${DB_USERNAME:-hydro}
+      DB_PASSWORD: ${DB_PASSWORD:-${SERVICE_HEX_32_5}}
+      REDIS_HOST: ${REDIS_HOST:-redis:6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-${SERVICE_HEX_32_6}}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq:5672}
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-hydro}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-${SERVICE_HEX_32_7}}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://hydro.netoasis.dedyn.io}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@hydro.netoasis.dedyn.io}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-${SERVICE_HEX_32_8}}
+      SEED_API_MQTT_USERNAME: ${MQTT_USERNAME:-hydro-api-user}
+      SEED_API_MQTT_PASSWORD: ${MQTT_PASSWORD:-${SERVICE_HEX_32_8}}
       JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-2592000000}
       JWT_ACCESS_EXPIRATION_MS: ${JWT_ACCESS_EXPIRATION_MS:-900000}
       JWT_ISSUER: ${JWT_ISSUER:-hydro-api}
     networks:
-      - hydro-network
+      hydro-network-stage:
+        aliases:
+          - api
     deploy:
       resources:
         limits:
@@ -52,43 +56,47 @@ services:
     environment:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: hydrodb
+      POSTGRES_DB: ${DB_NAME:-hydrodb-stage}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata-stage:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d hydrodb"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME}" ]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
-      - hydro-network
+      - hydro-network-stage
 
   redis:
     image: redis:7-alpine
     restart: on-failure:3
     command: redis-server --requirepass ${REDIS_PASSWORD}
     volumes:
-      - cache:/data
+      - cache-stage:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
-      - hydro-network
+      - hydro-network-stage
 
   nanomq:
-    image: emqx/nanomq:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.nanomq
     restart: on-failure:3
     ports:
       - "1883:1883"
-      - "8883:8883"
-      - "8083:8083"
-    volumes:
-      - ./nanomq.conf:/usr/local/nanomq/nanomq.conf
-      - ./mqtt_public_key.pem:/etc/mqtt_public_key.pem
+    healthcheck:
+      test: [ "CMD", "sh", "-c", "echo > /dev/tcp/127.0.0.1/1883" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
-      - hydro-network
+      - hydro-network-stage
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -97,21 +105,21 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
+      - rabbitmq-stage:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
-      - hydro-network
+      - hydro-network-stage
 
 volumes:
-  pgdata:
-  cache:
-  rabbitmq-data:
+  pgdata-stage:
+  cache-stage:
+  rabbitmq-stage:
 
 networks:
-  hydro-network:
+  hydro-network-stage:
     driver: bridge
-

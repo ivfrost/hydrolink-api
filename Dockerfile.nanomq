@@ -1,0 +1,4 @@
+FROM emqx/nanomq:latest
+
+COPY nanomq.conf /usr/local/nanomq/nanomq.conf
+COPY mqtt_public_key.pem /etc/mqtt_public_key.pem

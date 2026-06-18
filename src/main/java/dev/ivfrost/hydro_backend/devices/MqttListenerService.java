@@ -39,41 +39,63 @@ class MqttListenerService {
   @EventListener(ApplicationReadyEvent.class)
   public void init() {
     try {
-      client = new MqttClient(mqttBrokerUrl, mqttClientId);
-      MqttConnectOptions options = new MqttConnectOptions();
-      options.setCleanSession(true);
-      options.setUserName(mqttUsername);
-      options.setPassword(mqttPassword.toCharArray());
-      options.setAutomaticReconnect(true);
+      Thread.sleep(2000);
+    } catch (InterruptedException ie) {
+      Thread.currentThread().interrupt();
+      return;
+    }
 
-      client.setCallback(new MqttCallback() {
-        @Override
-        public void connectionLost(Throwable cause) {
-        }
+    int attempts = 0;
+    int maxAttempts = 5;
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        client = new MqttClient(mqttBrokerUrl, mqttClientId);
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setCleanSession(true);
+        options.setUserName(mqttUsername);
+        options.setPassword(mqttPassword.toCharArray());
+        options.setAutomaticReconnect(true);
 
-        @Override
-        public void messageArrived(String topic, MqttMessage message) {
+        client.setCallback(new MqttCallback() {
+          @Override
+          public void connectionLost(Throwable cause) {
+            log.warn("MQTT connection lost: {}", cause.getMessage());
+          }
+
+          @Override
+          public void messageArrived(String topic, MqttMessage message) {
+            try {
+              String[] tokens = topic.split("/");
+              String key = tokens[2];
+              log.debug("Received MQTT message from device {}: {}", key, new String(message.getPayload()));
+              deviceService.updateLastSeen(key);
+            } catch (Exception e) {
+              log.error("Error processing MQTT message: {}", e.getMessage());
+            }
+          }
+
+          @Override
+          public void deliveryComplete(IMqttDeliveryToken token) {
+          }
+        });
+
+        client.connect(options);
+        client.subscribe(mqttTopicWildcard);
+        log.info("MQTT client connected successfully to {}", mqttBrokerUrl);
+        return;
+      } catch (MqttException e) {
+        log.warn("MQTT connection attempt {}/{} failed: {}", attempts, maxAttempts, e.getMessage());
+        if (attempts < maxAttempts) {
           try {
-            String[] tokens = topic.split("/");
-            String key = tokens[2];
-            log.debug("Received MQTT message from device {}: {}", key, new String(message.getPayload()));
-            deviceService.updateLastSeen(key);
-          } catch (Exception e) {
-            System.err.println("Error processing MQTT message: " + e.getMessage());
-            e.printStackTrace();
+            Thread.sleep(5000);
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            return;
           }
         }
-
-        @Override
-        public void deliveryComplete(IMqttDeliveryToken token) {
-        }
-      });
-
-      client.connect(options);
-      client.subscribe(mqttTopicWildcard);
-
-    } catch (MqttException e) {
-      System.err.println("Error al conectar el cliente MQTT: " + e.getMessage());
+      }
     }
+    log.error("Failed to connect to MQTT broker after {} attempts", maxAttempts);
   }
 }
