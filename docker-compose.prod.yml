@@ -100,6 +100,8 @@ services:
     restart: on-failure:3
     ports:
       - "1883:1883"
+      - "8883:8883"
+      - "8083:8083"
     healthcheck:
       test: [ "CMD", "nc", "-z", "127.0.0.1", "1883" ]
       start_period: 15s
