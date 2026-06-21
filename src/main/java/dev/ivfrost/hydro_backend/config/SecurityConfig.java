@@ -85,7 +85,7 @@ public class SecurityConfig {
   // Isolate device callable endpoints to a separate filter chain
   @Bean
   @Order(1)
-  public SecurityFilterChain deviceSecurityFilterChain(final HttpSecurity http) throws Exception {
+  public SecurityFilterChain deviceSecurityFilterChain(final HttpSecurity http) {
     http.securityMatcher(EndpointRegistry.getDeviceCallableEndpoints())
         .csrf(AbstractHttpConfigurer::disable)
         .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
