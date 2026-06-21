@@ -2,7 +2,7 @@ package dev.ivfrost.hydro_backend;
 
 import dev.ivfrost.hydro_backend.devices.internal.Device;
 import dev.ivfrost.hydro_backend.devices.internal.DeviceRepository;
-import dev.ivfrost.hydro_backend.devices.internal.SecretHashUtil;
+import dev.ivfrost.hydro_backend.tokens.EncryptionUtil;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 public class StageDataInit implements ApplicationRunner {
 
   private final DeviceRepository deviceRepository;
+  private final EncryptionUtil encryptionUtil;
   @Value("${seed.device1.key}")
   private String device1Key;
   @Value("${seed.device1.secret}")
@@ -33,7 +34,7 @@ public class StageDataInit implements ApplicationRunner {
           .key(device1Key)
           .macAddress("00:11:22:33:44:55")
           .firmware("1.0.0")
-          .secretHash(SecretHashUtil.hash(device1Secret))
+          .secret(encryptionUtil.encrypt(device1Secret))
           .technicalName("hydrolink-esp32")
           .friendlyName("Greenhouse Irrigation Controller")
           .location("Greenhouse")
@@ -44,7 +45,7 @@ public class StageDataInit implements ApplicationRunner {
           .key(device2Key)
           .macAddress("66:77:88:99:AA:BB")
           .firmware("1.0.0")
-          .secretHash(SecretHashUtil.hash(device2Secret))
+          .secret(encryptionUtil.encrypt(device2Secret))
           .technicalName("hydrolink-esp32")
           .friendlyName("Garden Irrigation Controller")
           .location("Garden")

@@ -43,7 +43,7 @@ CREATE TABLE devices (
                          linked_at timestamp(6) with time zone,
                          location character varying(255),
                          mac_address character varying(17) NOT NULL,
-                         secret_hash character varying(255),
+                         secret character varying(255),
                          technical_name character varying(40) NOT NULL,
                          updated_at timestamp(6) with time zone NOT NULL,
                          user_id bigint

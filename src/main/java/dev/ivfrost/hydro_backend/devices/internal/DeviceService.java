@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -73,7 +72,7 @@ public class DeviceService {
     // Generate, hash and set device secret
     String rawSecret = EncryptionUtil.generateRandomString(32);
     String hashed = encryptionUtil.encrypt(rawSecret);
-    device.setSecretHash(hashed);
+    device.setSecret(hashed);
 
     // Save device
     Device saved = deviceRepository.save(device);
@@ -95,7 +94,7 @@ public class DeviceService {
 
     // Fetch unlinked device by secret hash
     String encryptedInput = encryptionUtil.encrypt(req.secret());
-    Device device = deviceRepository.findBySecretHash(encryptedInput)
+    Device device = deviceRepository.findBySecret(encryptedInput)
         .orElseThrow(() -> new DeviceNotFoundException("Device not found"));
 
     if (!unlink) {
@@ -324,7 +323,7 @@ public class DeviceService {
         .orElseThrow(() -> new DeviceNotFoundException("Device not found"));
 
     // Decrypt and compare stored secret hash with the provided raw secret
-    String decryptedSecret = encryptionUtil.decrypt(device.getSecretHash());
+    String decryptedSecret = encryptionUtil.decrypt(device.getSecret());
     if (!Objects.equals(decryptedSecret, req.secret())) {
       throw new BadCredentialsException("Invalid credentials");
     }
@@ -410,8 +409,8 @@ public class DeviceService {
     Device device = deviceRepository.findById(deviceId)
         .orElseThrow(() -> new DeviceNotFoundException(deviceId));
     String rawSecret = EncryptionUtil.generateRandomString(32);
-    String hashed = encryptionUtil.encrypt(rawSecret);
-    device.setSecretHash(hashed);
+    String encryptedSecret = encryptionUtil.encrypt(rawSecret);
+    device.setSecret(encryptedSecret);
     deviceRepository.save(device);
     evictDeviceCaches(deviceId, device.getUserId());
     return rawSecret;
@@ -427,7 +426,7 @@ public class DeviceService {
    */
   public String getSecretByDeviceId(Long deviceId) {
     Device device = getDeviceById(deviceId);
-    return encryptionUtil.decrypt(device.getSecretHash());
+    return encryptionUtil.decrypt(device.getSecret());
   }
 
   /**

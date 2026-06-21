@@ -60,8 +60,8 @@ public class Device implements Serializable {
 
 
   @Size(max = 255)
-  @Column(name = "secret_hash")
-  private String secretHash;
+  @Column(name = "secret")
+  private String secret;
 
   @Pattern(regexp = "^((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$")
   @Size(max = 15)

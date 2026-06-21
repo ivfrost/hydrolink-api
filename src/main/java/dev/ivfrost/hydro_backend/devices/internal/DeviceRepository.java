@@ -11,7 +11,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 
   List<Device> findAllByUserId(Long userId);
 
-  Optional<Device> findBySecretHash(String secretHash);
+  Optional<Device> findBySecret(String secret);
 
   Optional<Device> findByKey(String key);
 }
