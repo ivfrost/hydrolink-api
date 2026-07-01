@@ -93,7 +93,7 @@ public class DeviceController {
       (@RequestBody @Valid DeviceUpdateRequest req, @PathVariable Long deviceId) {
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device updated successfully",
-            deviceService.updateDeviceDetails(deviceId, req)));
+            deviceService.updateDeviceDetailsAdmin(deviceId, req)));
   }
 
   @Hidden

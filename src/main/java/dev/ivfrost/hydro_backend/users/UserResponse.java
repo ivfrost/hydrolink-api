@@ -2,7 +2,6 @@ package dev.ivfrost.hydro_backend.users;
 
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -40,10 +39,7 @@ public class UserResponse {
   Instant updatedAt;
 
   @NotNull
-  List<String> roles = new ArrayList<>();
-
-  @NotNull
-  String preferredLanguage;
+  List<String> roles;
 
   @NotNull
   String settings;

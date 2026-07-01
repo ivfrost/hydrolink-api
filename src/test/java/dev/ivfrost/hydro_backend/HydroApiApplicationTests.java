@@ -40,8 +40,7 @@ class HydroApiApplicationTests {
         "test@mail.com",
         "testuser",
         "Test User",
-        "password123",
-        "es");
+        "password123");
 
     given()
         .contentType(ContentType.JSON)

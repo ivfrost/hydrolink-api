@@ -57,7 +57,6 @@ public class JWTUtil {
         .withClaim("username", payload.username())
         .withClaim("email", payload.email())
         .withClaim("roles", roles)
-        .withClaim("preferredLanguage", payload.preferredLanguage())
         .withIssuer(issuer);
   }
 

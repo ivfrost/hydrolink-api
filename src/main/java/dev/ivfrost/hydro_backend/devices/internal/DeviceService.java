@@ -39,6 +39,7 @@ import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.AccessDeniedException;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -86,11 +87,12 @@ public class DeviceService {
    * Links an unlinked device to a user using the device secret as ownership proof
    *
    * @param req the device link request DTO (contains device secret)
+   * @return the updated device response DTO after linking
    * @throws DeviceLinkException     if the device is already linked
    * @throws DeviceNotFoundException if the device is not found
    */
   @Transactional
-  public void linkDevice(DeviceLinkRequest req, Long userId) {
+  public DeviceResponse linkDevice(DeviceLinkRequest req, Long userId) {
 
     // Fetch unlinked device by secret hash
     String encryptedInput = encryptionUtil.encrypt(req.secret());
@@ -106,6 +108,7 @@ public class DeviceService {
     device.setDisplayOrder(calculateDeviceOrder(userId));
     deviceRepository.save(device);
     evictDeviceCaches(device.getId(), userId);
+    return DeviceUtil.convertDeviceToResponse(device);
   }
 
   /**
@@ -162,7 +165,7 @@ public class DeviceService {
     return devices
         .stream()
         .map(DeviceUtil::convertDeviceToResponse)
-        .sorted(Comparator.comparing(DeviceResponse::order))
+        .sorted(Comparator.comparing(DeviceResponse::displayOrder))
         .toList();
   }
 
@@ -195,23 +198,45 @@ public class DeviceService {
     return DeviceUtil.convertDeviceToResponse(saved);
   }
 
+  @Transactional
+  public DeviceResponse updateDeviceDetails(long deviceId, DeviceUpdateRequest req, long requestingUserId, boolean isAdmin)
+      throws AccessDeniedException {
+    return doUpdateDeviceDetails(deviceId, req, requestingUserId, isAdmin);
+  }
+
+  /**
+   * Update devices override for admin users
+   */
+  @Transactional
+  public DeviceResponse updateDeviceDetailsAdmin(long deviceId, DeviceUpdateRequest req) {
+    return doUpdateDeviceDetails(deviceId, req, 0L, true);
+  }
+
   /**
    * Updates fields of a specific device by its ID.
    *
+   * @param deviceId the ID of the device to update
    * @param req the device update request DTO
+   * @param requestingUserId the ID of the currently authenticated user making the request
+   * @param isAdmin whether the request is made by an admin user
    * @return the updated device response DTO
-   * @throws DeviceNotFoundException  if the device is not found
-   * @throws IllegalArgumentException if the device does not belong to the user
+   * @throws DeviceNotFoundException if the device is not found
+   * @throws AccessDeniedException   if the device does not belong to the requesting user,
+   *                                 or if a non-admin attempts to update restricted fields
    */
-  @Transactional
-  public DeviceResponse updateDeviceDetails(long deviceId, DeviceUpdateRequest req) {
+  private DeviceResponse doUpdateDeviceDetails(long deviceId, DeviceUpdateRequest req, long requestingUserId, boolean isAdmin)
+      throws AccessDeniedException {
     Device device = deviceRepository.findById(deviceId).orElseThrow(
         () -> new DeviceNotFoundException(deviceId));
 
-    // Verify ownership
-    if (!Objects.equals(device.getUserId(), req.userId())) {
-      throw new IllegalArgumentException("Device does not belong to the user");
+    // Verify ownership and guard against non-admin users trying to update restricted fields
+    if (!isAdmin) {
+      verifyDeviceOwnership(requestingUserId, deviceId);
+      if (req.technicalName() != null || req.firmware() != null || req.userId() != null) {
+        throw new AccessDeniedException("Non-admin users cannot update technicalName, firmware, or userId");
+      }
     }
+
     String technicalName = req.technicalName();
     String firmware = req.firmware();
     String name = req.friendlyName();
@@ -225,9 +250,15 @@ public class DeviceService {
     if (name != null && !name.isEmpty()) {
       device.setFriendlyName(name);
     }
+    if (isAdmin && req.userId() != null) {
+      device.setUserId(req.userId());
+    }
+    if (req.displayOrder() != null && req.displayOrder() > 0) {
+      device.setDisplayOrder(req.displayOrder());
+    }
 
     Device saved = deviceRepository.save(device);
-    evictDeviceCaches(deviceId, req.userId());
+    evictDeviceCaches(deviceId, isAdmin ? saved.getUserId() : requestingUserId);
     return DeviceUtil.convertDeviceToResponse(saved);
   }
 
@@ -376,6 +407,27 @@ public class DeviceService {
     device.setFirmware(req.firmware());
     device.setMacAddress(req.macAddress());
     return device;
+  }
+
+  /**
+   * Converts a Device entity to a DeviceResponse DTO.
+   *
+   * @param device the device entity
+   * @return the device response DTO
+   */
+  private DeviceResponse convertDeviceToResponse(Device device) {
+    return DeviceResponse.builder()
+        .id(device.getId())
+        .key(device.getKey())
+        .technicalName(device.getTechnicalName())
+        .friendlyName(device.getFriendlyName())
+        .firmware(device.getFirmware())
+        .macAddress(device.getMacAddress())
+        .userId(device.getUserId())
+        .linkedAt(device.getLinkedAt())
+        .lastSeen(device.getLastSeen())
+        .displayOrder(device.getDisplayOrder())
+        .build();
   }
 
   /**

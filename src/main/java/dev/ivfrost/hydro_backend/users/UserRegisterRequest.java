@@ -28,12 +28,7 @@ public record UserRegisterRequest(
     @NotNull
     @Size(min = 8, max = 42)
     @Schema(requiredMode = RequiredMode.REQUIRED)
-    String password,
-
-    @NotNull
-    @Size(min = 2, max = 2)
-    @Schema(requiredMode = RequiredMode.REQUIRED)
-    String preferredLanguage
+    String password
 ) {
 
 }

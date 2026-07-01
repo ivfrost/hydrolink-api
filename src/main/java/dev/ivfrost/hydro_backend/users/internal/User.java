@@ -93,11 +93,6 @@ public class User implements Serializable {
   @Column(name = "role", nullable = false)
   private List<Role> roles;
 
-  @Builder.Default
-  @Size(min = 2, max = 2)
-  @Column(name = "preferred_language", nullable = false)
-  private String preferredLanguage = "es";
-
   @Column(name = "settings", columnDefinition = "text")
   private String settings;
 

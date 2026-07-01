@@ -6,5 +6,5 @@ public interface UserDeviceProvider {
 
   List<DeviceResponse> getUserDevices(Long userId);
 
-  DeviceResponse updateUserDevice(long deviceId, DeviceUpdateRequest request);
+  DeviceResponse updateUserDevice(long deviceId, DeviceUpdateRequest request, long reqUserId, boolean isAdmin);
 }

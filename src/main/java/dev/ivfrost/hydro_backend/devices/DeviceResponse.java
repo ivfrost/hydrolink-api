@@ -2,10 +2,14 @@ package dev.ivfrost.hydro_backend.devices;
 
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
+import lombok.Builder;
 
+@Builder
 public record DeviceResponse(
     @NotNull Long id,
-    @NotNull String name,
+    @NotNull String key,
+    @NotNull String macAddress,
+    @NotNull String friendlyName,
     @NotNull String location,
     @NotNull String firmware,
     @NotNull String technicalName,
@@ -15,6 +19,6 @@ public record DeviceResponse(
     @NotNull Instant linkedAt,
     @NotNull Instant lastSeen,
     @NotNull Long userId,
-    @NotNull Long order) {
+    @NotNull Long displayOrder) {
 
 }

@@ -33,9 +33,6 @@ public record UserUpdateRequest(
     @Size(max = 100)
     String address,
 
-    @Size(min = 2, max = 2)
-    String preferredLanguage,
-
     String settings
 ) {
 

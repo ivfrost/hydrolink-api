@@ -9,7 +9,6 @@ CREATE TABLE users (
                        notes text,
                        password character varying(255) NOT NULL,
                        phone_number character varying(20),
-                       preferred_language character varying(2) NOT NULL,
                        profile_pic character varying(255),
                        settings text,
                        updated_at timestamp(6) with time zone NOT NULL,

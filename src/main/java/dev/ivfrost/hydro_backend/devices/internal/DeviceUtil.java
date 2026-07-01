@@ -20,11 +20,20 @@ class DeviceUtil {
       return null;
     }
     // Extract userId from user object (user is lazily loaded but ID is already known)
-    return new DeviceResponse(device.getId(), device.getFriendlyName(), device.getLocation(),
-        device.getFirmware(),
-        device.getTechnicalName(), device.getIp(), device.getCreatedAt(), device.getUpdatedAt(),
-        device.getLinkedAt(), device.getLastSeen(), device.getUserId(),
-        device.getDisplayOrder());
+    return DeviceResponse.builder()
+        .id(device.getId())
+        .friendlyName(device.getFriendlyName())
+        .location(device.getLocation())
+        .firmware(device.getFirmware())
+        .technicalName(device.getTechnicalName())
+        .ip(device.getIp())
+        .createdAt(device.getCreatedAt())
+        .updatedAt(device.getUpdatedAt())
+        .linkedAt(device.getLinkedAt())
+        .lastSeen(device.getLastSeen())
+        .userId(device.getUserId())
+        .displayOrder(device.getDisplayOrder())
+        .build();
   }
 
   /**

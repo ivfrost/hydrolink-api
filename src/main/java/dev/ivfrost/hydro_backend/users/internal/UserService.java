@@ -4,25 +4,25 @@ import com.auth0.jwt.interfaces.Claim;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUnlinkRequest;
+import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.tokens.JWTUtil;
 import dev.ivfrost.hydro_backend.tokens.MqttTokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
 import dev.ivfrost.hydro_backend.tokens.UserTokenProvider;
 import dev.ivfrost.hydro_backend.devices.DeviceTopicProvider;
+import dev.ivfrost.hydro_backend.users.AuthResponse;
 import dev.ivfrost.hydro_backend.users.UserAuthRequest;
 import dev.ivfrost.hydro_backend.devices.UserDeviceProvider;
 import dev.ivfrost.hydro_backend.users.UserDisabledException;
 import dev.ivfrost.hydro_backend.users.UserMqttResponse;
 import dev.ivfrost.hydro_backend.users.UserRecoveryRequest;
 import dev.ivfrost.hydro_backend.users.UserRegisterRequest;
-import dev.ivfrost.hydro_backend.users.UserRegisterResponse;
 import dev.ivfrost.hydro_backend.users.UserResponse;
 import dev.ivfrost.hydro_backend.users.UserUpdateLastOnlineEvent;
 import dev.ivfrost.hydro_backend.users.UserUpdateRequest;
 import dev.ivfrost.hydro_backend.users.UsernameTakenException;
 import jakarta.transaction.Transactional;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,12 +65,12 @@ public class UserService {
    * Authenticates a user by email and password.
    *
    * @param req the user authentication request DTO
-   * @return a list of {@link TokenResponse} containing access and refresh tokens
+   * @return {@link AuthResponse} containing the authenticated user and access/refresh tokens
    * @throws AuthenticationCredentialsNotFoundException if the user is not found
    * @throws UserDisabledException                          if the user is disabled
    * @throws BadCredentialsException                    if the password is incorrect
    */
-  List<TokenResponse> authenticateUser(UserAuthRequest req) {
+  AuthResponse authenticateUser(UserAuthRequest req) {
     String email = req.email();
     String password = req.password();
     Optional<User> userOpt = userRepository.findByEmail(email);
@@ -88,25 +88,25 @@ public class UserService {
       log.debug("Password mismatch for user with email: {}", email);
       throw new BadCredentialsException("Invalid credentials");
     }
-    return userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
+    List<TokenResponse> tokens = userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
         user.getUsername(),
         user.getEmail(),
         user.getRoles().stream().map(Enum::name).toList(),
-        user.getPreferredLanguage(),
         user.getId()
     ));
+    return new AuthResponse(convertUserToResponse(user), tokens);
   }
 
   /**
    * Registers a new user with specified roles (admin only).
    *
-   * @param req   the user registration request DTO
+   * @param req the user registration request DTO
    * @param roles the roles to assign to the user (defaults to USER if null)
-   * @return {@link UserRegisterResponse} containing recovery tokens
+   * @return {@link AuthResponse} containing the registered user and recovery tokens
    * @throws UsernameTakenException if the username is already taken
    */
   @Transactional
-  List<TokenResponse> addUser(UserRegisterRequest req, List<User.Role> roles) {
+  AuthResponse addUser(UserRegisterRequest req, List<User.Role> roles) {
     if (isUserAuthenticated()) {
       throw new IllegalStateException("Cannot register new user while authenticated.");
     }
@@ -120,7 +120,8 @@ public class UserService {
     user.setRoles(roles != null ? roles : List.of(User.Role.USER));
     User savedUser = userRepository.save(user);
 
-    return userTokenProvider.generateRecoveryTokens(savedUser.getId());
+    List<TokenResponse> recoveryTokens = userTokenProvider.generateRecoveryTokens(savedUser.getId());
+    return new AuthResponse(convertUserToResponse(savedUser), recoveryTokens);
   }
 
   /**
@@ -129,11 +130,11 @@ public class UserService {
    * <p>- First user is assigned ADMIN and USER roles.
    *
    * @param req the user registration request DTO
-   * @return {@link UserRegisterResponse} containing recovery tokens
+   * @return {@link AuthResponse} containing the registered user and recovery tokens
    * @throws UsernameTakenException if the username is already taken
    */
   @Transactional
-  List<TokenResponse> addUser(UserRegisterRequest req) {
+  AuthResponse addUser(UserRegisterRequest req) {
     boolean isFirstUser = userRepository.count() == 0;
     List<User.Role> roles = isFirstUser
         ? List.of(User.Role.ADMIN, User.Role.USER)
@@ -150,11 +151,11 @@ public class UserService {
    */
   private User getCurrentUser() {
     Long userId = getCurrentUserId();
-    User user = userRepository.findById(userId).orElse(null);
-    if (user == null) {
-      throw new AuthenticationCredentialsNotFoundException(
-          "User with ID " + userId + " not found.");
-    } else if (!user.isEnabled()) {
+    User user = userRepository.findById(userId).orElseThrow(
+        () -> new AuthenticationCredentialsNotFoundException(
+            "User with ID " + userId + " not found.")
+    );
+    if (!user.isEnabled()) {
       throw new UserDisabledException(userId);
     }
     return user;
@@ -329,9 +330,6 @@ public class UserService {
 //      user.setProfilePictureUrl(key);
 //    }
 
-    if (req.preferredLanguage() != null && !req.preferredLanguage().isBlank()) {
-      user.setPreferredLanguage(req.preferredLanguage());
-    }
     if (req.settings() != null) {
       user.setSettings(req.settings());
     }
@@ -361,7 +359,6 @@ public class UserService {
         user.getUsername(),
         user.getEmail(),
         user.getRoles().stream().map(Enum::name).toList(),
-        user.getPreferredLanguage(),
         user.getId()
     ));
   }
@@ -386,8 +383,8 @@ public class UserService {
   /**
    * Links a device to the currently authenticated user.
    */
-  void linkDeviceToCurrentUser(DeviceLinkRequest req) {
-    deviceLinkProvider.linkDevice(req, getCurrentUserId());
+  DeviceResponse linkDeviceToCurrentUser(DeviceLinkRequest req) {
+    return deviceLinkProvider.linkDevice(req, getCurrentUserId());
   }
 
   /*
@@ -395,6 +392,16 @@ public class UserService {
    */
   void unlinkDeviceFromCurrentUser(DeviceUnlinkRequest req) {
     deviceLinkProvider.unlinkDevice(req, getCurrentUserId());
+  }
+
+  /*
+    * Updates a device linked to the currently authenticated user.
+   */
+  DeviceResponse updateDeviceForCurrentUser(long deviceId, DeviceUpdateRequest req) {
+    User user = getCurrentUser();
+    boolean isAdmin = user.getRoles().contains(User.Role.ADMIN);
+
+    return userDeviceProvider.updateUserDevice(deviceId, req, user.getId(), isAdmin);
   }
 
   /*
@@ -492,7 +499,6 @@ public class UserService {
     user.setPassword(encodedPassword);
     user.setEmail(req.email());
     user.setFullName(req.fullName());
-    user.setPreferredLanguage(req.preferredLanguage());
     return user;
   }
 
@@ -514,7 +520,7 @@ public class UserService {
         user.getId(), user.getUsername(), user.getFullName(), user.getEmail(),
         user.getProfilePictureUrl(),
         user.getPhoneNumber(), user.getAddress(), user.getCreatedAt(), user.getUpdatedAt(),
-        roleList, user.getPreferredLanguage(), user.getSettings()
+        roleList, user.getSettings()
     );
   }
 

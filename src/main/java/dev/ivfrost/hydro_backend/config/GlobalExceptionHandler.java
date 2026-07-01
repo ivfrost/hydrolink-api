@@ -14,6 +14,7 @@ import dev.ivfrost.hydro_backend.tokens.TokenNotFoundException;
 import dev.ivfrost.hydro_backend.users.UserDisabledException;
 import dev.ivfrost.hydro_backend.users.UserNotAuthenticatedException;
 import dev.ivfrost.hydro_backend.users.UsernameTakenException;
+import org.springframework.security.access.AccessDeniedException;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -96,6 +97,13 @@ public class GlobalExceptionHandler {
       DeviceNotFoundException ex) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND)
         .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage()));
+  }
+
+  @ExceptionHandler(AccessDeniedException.class)
+  public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(
+      AccessDeniedException ex) {
+    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        .body(ApiResponse.error(HttpStatus.FORBIDDEN, ex.getMessage()));
   }
 
   @ExceptionHandler(DeviceLinkException.class)

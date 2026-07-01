@@ -8,7 +8,7 @@ public interface DeviceLinkProvider {
    * @param req    the device link request containing the device secret
    * @param userId the user ID to link the device to
    */
-  void linkDevice(DeviceLinkRequest req, Long userId);
+  DeviceResponse linkDevice(DeviceLinkRequest req, Long userId);
 
   /**
    * Unlinks a device from a user
