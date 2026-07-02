@@ -123,11 +123,24 @@ public class UserController {
   )
   @PostMapping("/users")
   public ResponseEntity<ApiResponse<AuthResponse>> registerUser(
+      @RequestHeader (value = "x-client-platform", required = false) String clientPlatform,
       @Valid @RequestBody UserRegisterRequest userRegisterRequest) {
 
+    AuthResponse registerResponse = userService.addUser(userRegisterRequest);
+    if (ClientPlatform.from(clientPlatform) == ClientPlatform.REACT_NATIVE) {
+      return ResponseEntity.status(HttpStatus.CREATED)
+          .body(ApiResponse.success(HttpStatus.CREATED, "User registered successfully",
+             registerResponse
+          ));
+    }
+    var accessToken = extractToken(registerResponse, "AUTH_ACCESS_TOKEN");
+    var refreshToken = extractToken(registerResponse, "AUTH_REFRESH_TOKEN");
+    ResponseCookie refreshTokenCookie = generateRefreshTokenCookie(refreshToken, "/v1/users/auth/refresh");
+
     return ResponseEntity.status(HttpStatus.CREATED)
+        .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString())
         .body(ApiResponse.success(HttpStatus.CREATED, "User registered successfully",
-            userService.addUser(userRegisterRequest)
+            new AuthResponse(registerResponse.userResponse(), List.of(accessToken))
         ));
   }
 
