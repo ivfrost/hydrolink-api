@@ -49,8 +49,12 @@ public class EndpointRegistry {
   public static String[] getPublicEndpoints(Environment env) {
     Stream<List<String>> base = Stream.of(APP_PUBLIC);
 
+    if (env.acceptsProfiles(Profiles.of("dev", "stage"))) {
+      base = Stream.concat(base, Stream.of(SWAGGER));
+    }
+
     if (env.acceptsProfiles(Profiles.of("dev"))) {
-      base = Stream.concat(base, Stream.of(SWAGGER, H2_CONSOLE));
+      base = Stream.concat(base, Stream.of(H2_CONSOLE));
     }
 
     return base.flatMap(List::stream).toArray(String[]::new);
