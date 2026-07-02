@@ -21,6 +21,7 @@ import dev.ivfrost.hydro_backend.tokens.MqttTokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -160,7 +161,7 @@ public class DeviceService {
     log.debug("Fetched {} devices for user ID {}", devices.size(), userId);
 
     if (devices.isEmpty()) {
-      throw new DeviceFetchException("No devices found for user");
+      return new ArrayList<>();
     }
     return devices
         .stream()
