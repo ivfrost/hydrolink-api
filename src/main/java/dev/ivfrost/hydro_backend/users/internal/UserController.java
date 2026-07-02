@@ -24,6 +24,7 @@ import jakarta.validation.Valid;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.jspecify.annotations.Nullable;
@@ -135,12 +136,16 @@ public class UserController {
     }
     var accessToken = extractToken(registerResponse, "AUTH_ACCESS_TOKEN");
     var refreshToken = extractToken(registerResponse, "AUTH_REFRESH_TOKEN");
+    var recoveryCodes = registerResponse.tokens().stream()
+        .filter(t -> t.type().equals("AUTH_RECOVERY_CODE"))
+        .toList();
+    var webTokenList = Stream.concat(Stream.of(accessToken), recoveryCodes.stream())
+        .toList();
     ResponseCookie refreshTokenCookie = generateRefreshTokenCookie(refreshToken, "/v1/users/auth/refresh");
-
     return ResponseEntity.status(HttpStatus.CREATED)
         .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString())
         .body(ApiResponse.success(HttpStatus.CREATED, "User registered successfully",
-            new AuthResponse(registerResponse.userResponse(), List.of(accessToken))
+            new AuthResponse(registerResponse.userResponse(), webTokenList)
         ));
   }
 

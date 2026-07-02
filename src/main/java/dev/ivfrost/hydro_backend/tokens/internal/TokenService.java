@@ -46,7 +46,7 @@ public class TokenService {
     );
   }
 
-  public List<TokenResponse> generateRecoveryTokens(Long userId) {
+  public List<TokenResponse> generateRecoveryCodes(Long userId) {
     String[] recoveryCodes = RecoveryCodeUtil.generateRecoveryCodes();
 
     // Save recovery codes to the database
@@ -54,7 +54,7 @@ public class TokenService {
         .map(code -> {
           Token token = new Token();
           token.setValue(code);
-          token.setType(TokenType.RECOVERY_CODE);
+          token.setType(TokenType.AUTH_RECOVERY_CODE);
           token.setUserId(userId);
           token.setExpiryDate(null);
           return token;
@@ -63,7 +63,7 @@ public class TokenService {
     tokenRepository.saveAll(tokens);
 
     return Arrays.stream(recoveryCodes)
-        .map(code -> new TokenResponse(code, TokenType.RECOVERY_CODE.toString(), null, userId))
+        .map(code -> new TokenResponse(code, TokenType.AUTH_RECOVERY_CODE.toString(), null, userId))
         .toList();
   }
 

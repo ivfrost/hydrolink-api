@@ -25,8 +25,8 @@ public class UserTokenProviderImpl implements UserTokenProvider {
   }
 
   @Override
-  public List<TokenResponse> generateRecoveryTokens(long userId) {
-    return tokenService.generateRecoveryTokens(userId);
+  public List<TokenResponse> generateRecoveryCodes(long userId) {
+    return tokenService.generateRecoveryCodes(userId);
   }
 
   @Override

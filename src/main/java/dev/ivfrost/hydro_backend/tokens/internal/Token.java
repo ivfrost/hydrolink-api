@@ -34,7 +34,7 @@ public class Token {
   private long userId;
 
   public enum TokenType {
-    RECOVERY_CODE,
+    AUTH_RECOVERY_CODE,
     AUTH_ACCESS_TOKEN,
     AUTH_REFRESH_TOKEN,
     MQTT_TOKEN,

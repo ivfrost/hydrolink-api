@@ -12,6 +12,7 @@ import dev.ivfrost.hydro_backend.tokens.TokenResponse;
 import dev.ivfrost.hydro_backend.tokens.UserTokenProvider;
 import dev.ivfrost.hydro_backend.devices.DeviceTopicProvider;
 import dev.ivfrost.hydro_backend.users.AuthResponse;
+import dev.ivfrost.hydro_backend.users.EmailTakenException;
 import dev.ivfrost.hydro_backend.users.UserAuthRequest;
 import dev.ivfrost.hydro_backend.devices.UserDeviceProvider;
 import dev.ivfrost.hydro_backend.users.UserDisabledException;
@@ -26,6 +27,7 @@ import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -114,14 +116,21 @@ public class UserService {
       throw new UsernameTakenException(req.username());
     }
     if (userRepository.findByEmail(req.email()).isPresent()) {
-      throw new UsernameTakenException(req.email());
+      throw new EmailTakenException(req.email());
     }
     User user = convertRequestToUser(req);
     user.setRoles(roles != null ? roles : List.of(User.Role.USER));
     User savedUser = userRepository.save(user);
 
-    List<TokenResponse> recoveryTokens = userTokenProvider.generateRecoveryTokens(savedUser.getId());
-    return new AuthResponse(convertUserToResponse(savedUser), recoveryTokens);
+    List<TokenResponse> recoveryTokens = userTokenProvider.generateRecoveryCodes(savedUser.getId());
+    List<TokenResponse> accessRefreshTokens = userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
+        savedUser.getUsername(),
+        savedUser.getEmail(),
+        savedUser.getRoles().stream().map(Enum::name).toList(),
+        savedUser.getId()
+    ));
+    List<TokenResponse> allTokens = Stream.concat(recoveryTokens.stream(), accessRefreshTokens.stream()).toList();
+    return new AuthResponse(convertUserToResponse(savedUser), allTokens);
   }
 
   /**

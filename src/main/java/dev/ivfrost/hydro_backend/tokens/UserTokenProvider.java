@@ -8,7 +8,7 @@ public interface UserTokenProvider {
 
   boolean isTokenValidForUserId(String token, long userId);
 
-  List<TokenResponse> generateRecoveryTokens(long userId);
+  List<TokenResponse> generateRecoveryCodes(long userId);
 
   List<TokenResponse> generateAccessAndRefreshTokens(TokenPayload payload);
 
