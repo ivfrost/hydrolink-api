@@ -16,6 +16,7 @@ import dev.ivfrost.hydro_backend.users.UserResponse;
 import dev.ivfrost.hydro_backend.users.UserUpdateRequest;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -45,6 +46,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -133,34 +135,12 @@ public class UserController {
       summary = "Check if username or email is available",
       description = "Checks if a username or email is available for registration."
   )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = {
-              @ExampleObject(
-                  name = "Username validation example",
-                  value = """
-                      {
-                        "username": "test_user"
-                      }
-                      """,
-                  summary = "Example of a username availability validation request"
-              ),
-              @ExampleObject(
-                  name = "Email validation example",
-                  value = """
-                      {
-                        "email": "test_email@hydro.com"
-                      }
-                      """,
-                  summary = "Example of an email availability validation request"
-              )
-          }
-      )
-  )
   @GetMapping(value = "/users/validate")
   public ResponseEntity<ApiResponse<Boolean>> validateUsernameEmail(
-      @Nullable String username,
-      @Nullable String email) {
+      @Parameter(description = "Username to check availability for", example = "test_user")
+      @RequestParam(required = false) String username,
+      @Parameter(description = "Email to check availability for", example = "test_email@hydro.com")
+      @RequestParam(required = false) String email) {
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Validation completed successfully",
             userService.validateUsernameEmail(username, email)

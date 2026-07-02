@@ -412,14 +412,13 @@ public class UserService {
   }
 
   boolean validateUsernameEmail(String username, String email) {
-    if (username != null && !username.isBlank() && userRepository.findByUsername(username)
-        .isEmpty()) {
-      return true;
+    if (username != null && !username.isBlank()) {
+      return userRepository.findByUsername(username).isEmpty();
     }
-    if (email != null && !email.isBlank() && userRepository.findByEmail(email).isEmpty()) {
-      return true;
+    if (email != null && !email.isBlank()) {
+      return userRepository.findByEmail(email).isEmpty();
     }
-    return false;
+    return false; // neither field provided — nothing to validate
   }
 
   /*====== REDIS STATE ======*/
