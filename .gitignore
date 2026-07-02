@@ -48,12 +48,8 @@ hydro-backend.tar
 *.trace.db
 
 ### Env files ###
-.env
-.env.test
-.env.production
-.env.development
-.env.local
-*.properties
-!application-stage.properties
+.env*
+application-dev.properties
+application-test.properties
 !*.template
 !*.example
