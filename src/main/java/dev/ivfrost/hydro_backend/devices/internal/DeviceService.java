@@ -377,7 +377,7 @@ public class DeviceService {
         new MqttTokenPayload(
             deviceUserId,
             device.getId(),
-            List.of("hydro/" + "+" + "/" + device.getKey() + "/#")
+            List.of("hydro/" + device.getKey() + "/#")
         )
     );
   }
@@ -498,7 +498,7 @@ public class DeviceService {
   public List<String> getUserDeviceTopics(Long userId) {
     List<Device> devices = deviceRepository.findAllByUserId(userId);
     return devices.stream()
-        .map(device -> "hydro/" + userId + "/" + device.getKey() + "/#")
+        .map(device -> "hydro/" + device.getKey() + "/#")
         .toList();
   }
 
