@@ -109,14 +109,14 @@ public class DeviceController {
   }
 
   @PreAuthorize("hasRole('ADMIN')")
-  @Operation(summary = "Get device secret by ID",
-      description = "Retrieves the decrypted device secret for a specific device by its ID.")
-  @GetMapping("/devices/{deviceId}/secret")
+  @Operation(summary = "Get device secret by key (Admin only)",
+      description = "Retrieves the decrypted device secret for a specific device by its key.")
+  @GetMapping("/devices/{deviceKey}/secret")
   public ResponseEntity<ApiResponse<Map<String, String>>> getDeviceSecret(
-      @PathVariable Long deviceId) {
-    String secret = deviceService.getSecretByDeviceId(deviceId);
+      @PathVariable String deviceKey) {
+    String secret = deviceService.getSecretByDeviceKey(deviceKey);
     Map<String, String> response = Map.of(
-        "deviceId", deviceId.toString(),
+        "deviceKey", deviceKey,
         "secret", secret != null ? secret : ""
     );
     return ResponseEntity.status(HttpStatus.OK)

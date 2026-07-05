@@ -517,15 +517,15 @@ public class DeviceService {
   }
 
   /**
-   * Retrieves the secret for a device by its ID (decrypted). The secret is automatically decrypted
-   * by the JPA converter.
+   * Retrieves the secret for a device by its key. The secret is decrypted before being returned.
    *
-   * @param deviceId the ID of the device
+   * @param deviceKey the key of the device
    * @return the device's secret (decrypted)
    * @throws DeviceNotFoundException if the device is not found
    */
-  public String getSecretByDeviceId(Long deviceId) {
-    Device device = getDeviceById(deviceId);
+  public String getSecretByDeviceKey(String deviceKey) {
+    Device device = deviceRepository.findByKey(deviceKey)
+        .orElseThrow(() -> new DeviceNotFoundException("Device not found for key: " + deviceKey));
     return encryptionUtil.decrypt(device.getSecret());
   }
 
