@@ -38,7 +38,7 @@ CREATE TABLE devices (
                          friendly_name character varying(40),
                          ip character varying(15),
                          key character varying(255) NOT NULL,
-                         last_seen timestamp(6) with time zone NOT NULL,
+                         last_seen timestamp(6) with time zone,
                          linked_at timestamp(6) with time zone,
                          location character varying(255),
                          mac_address character varying(17) NOT NULL,

@@ -79,7 +79,7 @@ public class Device implements Serializable {
   @Column(name = "linked_at")
   private Instant linkedAt;
 
-  @Column(name = "last_seen", nullable = false)
+  @Column(name = "last_seen")
   private Instant lastSeen;
 
   @Column(name = "user_id")
