@@ -54,6 +54,8 @@ public class DeviceService {
   private final JWTUtil jWTUtil;
   private final EncryptionUtil encryptionUtil;
   private final CacheManager cacheManager;
+  @Value("${provisioning.secret}")
+  private String provisioningSecret;
 
   /**
    * Provisions a new device and generates a secret for ownership verification.
@@ -78,6 +80,42 @@ public class DeviceService {
 
     // Save device
     Device saved = deviceRepository.save(device);
+
+    evictGlobalCache();
+    // Return device details along with the raw secret
+    return DeviceUtil.convertProvisionDeviceToResponse(saved, rawSecret);
+  }
+
+  /**
+   * Provisions a new device and generates a secret for ownership verification.
+   * Meant to be called by post build hook by the esp32 device itself.
+   *
+   * @param req the device provision request DTO
+   * @param authorizationHeader the authorization header containing the provisioning token
+   * @return the provisioned device response DTO
+   */
+  @Transactional
+  public DeviceProvisionResponse provisionDevice(DeviceProvisionRequest req, String authorizationHeader) {
+    log.debug("authorizationHeader raw = '{}'", authorizationHeader);
+    if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+      throw new BadCredentialsException("Missing or invalid Authorization header");
+    }
+    String token = authorizationHeader.replace("Bearer ", "").trim();
+    log.debug("token='{}' (len={}), provisioningSecret='{}' (len={})",
+        token, token.length(), provisioningSecret, provisioningSecret.length());
+    if (!provisioningSecret.equals(token)) {
+      throw new BadCredentialsException("Invalid provisioning token");
+    }
+
+    Device device = convertRequestToDevice(req);
+
+    // Generate, hash and set device secret
+    String rawSecret = EncryptionUtil.generateRandomString(32);
+    String hashed = encryptionUtil.encrypt(rawSecret);
+    device.setSecret(hashed);
+
+    // Save device
+    Device saved = deviceRepository.upsert(device);
 
     evictGlobalCache();
     // Return device details along with the raw secret
@@ -406,6 +444,7 @@ public class DeviceService {
     Device device = new Device();
     device.setTechnicalName(req.technicalName());
     device.setFirmware(req.firmware());
+    device.setKey(req.key());
     device.setMacAddress(req.macAddress());
     return device;
   }

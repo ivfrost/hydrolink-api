@@ -41,7 +41,8 @@ public class EndpointRegistry {
   );
   private static final List<String> DEVICE_CALLABLE = List.of(
       "/v1/internal/devices/auth",
-      "/v1/internal/devices/last-seen"
+      "/v1/internal/devices/last-seen",
+      "/v1/internal/devices/provision"
   );
 
   private static final AntPathMatcher pathMatcher = new AntPathMatcher();

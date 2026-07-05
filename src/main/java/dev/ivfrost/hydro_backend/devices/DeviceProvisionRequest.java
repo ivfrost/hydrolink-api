@@ -12,6 +12,8 @@ public record DeviceProvisionRequest(
     String firmware,
     @Size(max = 40)
     String technicalName,
+    @Size(max = 12, min = 12)
+    String key,
     @Size(max = 17, min = 17)
     String macAddress) {
 
