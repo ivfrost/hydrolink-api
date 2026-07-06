@@ -22,6 +22,7 @@ class DeviceUtil {
     // Extract userId from user object (user is lazily loaded but ID is already known)
     return DeviceResponse.builder()
         .id(device.getId())
+        .key(device.getKey())
         .friendlyName(device.getFriendlyName())
         .location(device.getLocation())
         .firmware(device.getFirmware())
