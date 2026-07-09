@@ -1,5 +1,5 @@
 FROM emqx/nanomq:latest-slim
 
 RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
-COPY nanomq.conf /etc/nanomq/nanomq.conf
+COPY nanomq.prod.conf /etc/nanomq/nanomq.conf
 COPY mqtt_public_key.pem /etc/mqtt_public_key.pem

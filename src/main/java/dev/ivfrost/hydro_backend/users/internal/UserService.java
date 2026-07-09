@@ -290,6 +290,7 @@ public class UserService {
     }
     boolean isChangingPassword = req.password() != null && !req.password().isBlank();
     boolean isChangingEmail = req.email() != null && !req.email().isBlank() && !req.email().trim().toLowerCase().equals(user.getEmail());
+    boolean isChangingUsername = req.username() != null && !req.username().isBlank() && !req.username().equals(user.getUsername());
 
     if (isChangingPassword || isChangingEmail) {
       if (req.currentPassword() == null || req.currentPassword().isBlank()) {
@@ -317,7 +318,12 @@ public class UserService {
       }
     }
 
-    if (req.username() != null && !req.username().isBlank()) {
+    // If changing username, check if the new username is already in use and update it
+    if (isChangingUsername) {
+      boolean isUsernameTaken = userRepository.existsByUsername(req.username());
+      if (isUsernameTaken && !req.username().equals(user.getUsername())) {
+        throw new UsernameTakenException(req.username());
+      }
       user.setUsername(req.username());
     }
     if (req.fullName() != null && !req.fullName().isBlank()) {
@@ -329,15 +335,17 @@ public class UserService {
     if (req.address() != null) {
       user.setAddress(req.address());
     }
-//    if (profilePicture != null && !profilePicture.isEmpty()) {
-//      String key = null;
-//      try {
-//        key = blobStorageService.save(profilePicture, userId);
-//      } catch (IOException e) {
-//        throw new RuntimeException(e);
-//      }
-//      user.setProfilePictureUrl(key);
-//    }
+
+    // TODO: Reenable profile picture upload once blob storage is set up
+    //    if (profilePicture != null && !profilePicture.isEmpty()) {
+    //      String key = null;
+    //      try {
+    //        key = blobStorageService.save(profilePicture, userId);
+    //      } catch (IOException e) {
+    //        throw new RuntimeException(e);
+    //      }
+    //      user.setProfilePictureUrl(key);
+    //    }
 
     if (req.settings() != null) {
       user.setSettings(req.settings());

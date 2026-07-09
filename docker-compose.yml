@@ -2,25 +2,39 @@ services:
   postgres:
     image: postgres:16
     container_name: postgres_dev
+    restart: on-failure:3
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: hydrodb-dev
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     ports:
       - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}" ]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - hydro-network
 
   redis:
     image: redis:7-alpine
     container_name: redis_dev
-    command: redis-server --loglevel verbose
+    restart: on-failure:3
+    command: redis-server --loglevel verbose --port ${REDIS_PORT}
     ports:
       - '6379:6379'
     volumes:
       - cache:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - hydro-network
 
@@ -33,7 +47,7 @@ services:
       - "8883:8883"
       - "8083:8083"
     volumes:
-      - ./nanomq.conf:/usr/local/nanomq/nanomq.conf
+      - ./nanomq.conf:/usr/local/nanomq/nanomq.prod.conf
       - ./mqtt_public_key.pem:/etc/mqtt_public_key.pem
     networks:
       - hydro-network
@@ -43,18 +57,28 @@ services:
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: rabbitmq_dev
+    restart: on-failure:3
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: password
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     ports:
       - '5672:5672'
       - '15672:15672'
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+      start_period: 20s
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - hydro-network
 
 volumes:
   pgdata:
   cache:
+  rabbitmq:
 
 networks:
   hydro-network:
