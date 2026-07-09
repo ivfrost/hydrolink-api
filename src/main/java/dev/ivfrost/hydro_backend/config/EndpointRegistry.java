@@ -15,6 +15,7 @@ public class EndpointRegistry {
   private static final List<String> APP_PUBLIC = List.of(
       "/v1/users",
       "/v1/users/auth",
+      "/v1/users/auth/refresh",
       "/v1/users/recover",
       "/v1/users/validate/**",
       "/v1/users/password/reset",
@@ -32,8 +33,7 @@ public class EndpointRegistry {
   );
   private static final List<String> APP_AUTHENTICATED = List.of(
       "/v1/users/**",
-      "/v1/me/**",
-      "/v1/users/auth/refresh"
+      "/v1/me/**"
   );
   private static final List<String> H2_CONSOLE = List.of(
       "/h2-console/**",

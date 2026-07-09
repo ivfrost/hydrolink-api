@@ -362,15 +362,11 @@ public class UserService {
    * @throws BadCredentialsException if the refresh token does not belong to the authenticated user
    */
   List<TokenResponse> refreshTokens(String refreshToken) {
-    User user = getCurrentUser();
-
-    Map<String, Claim> claims = userTokenProvider.validateTokenAndRetrieveClaims(
-        refreshToken);
+    Map<String, Claim> claims = userTokenProvider.validateTokenAndRetrieveClaims(refreshToken);
     Long tokenUserId = claims.get("userId").asLong();
 
-    if (!user.getId().equals(tokenUserId)) {
-      throw new BadCredentialsException("Refresh token does not belong to authenticated user");
-    }
+    User user = userRepository.findById(tokenUserId)
+        .orElseThrow(() -> new BadCredentialsException("User not found"));
 
     return userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
         user.getUsername(),
