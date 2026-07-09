@@ -222,20 +222,6 @@ public class DeviceService {
     return devices.map(DeviceUtil::convertDeviceToResponse);
   }
 
-  /**
-   * Updates the friendly friendlyName of a specific device by its ID.
-   */
-  @Transactional
-  public DeviceResponse updateDeviceFriendlyName(long deviceId, DeviceUpdateRequest req) {
-    Device device = deviceRepository.findById(deviceId)
-        .orElseThrow(() -> new DeviceNotFoundException(deviceId));
-    verifyDeviceOwnership(req.userId(), deviceId);
-    device.setFriendlyName(req.friendlyName());
-
-    Device saved = deviceRepository.save(device);
-    evictDeviceCaches(deviceId, req.userId());
-    return DeviceUtil.convertDeviceToResponse(saved);
-  }
 
   @Transactional
   public DeviceResponse updateDeviceDetails(long deviceId, DeviceUpdateRequest req, long requestingUserId, boolean isAdmin)
@@ -280,23 +266,37 @@ public class DeviceService {
     String firmware = req.firmware();
     String name = req.friendlyName();
 
+    // Restricted fields
     if (technicalName != null && !technicalName.isEmpty()) {
       device.setTechnicalName(technicalName);
     }
     if (firmware != null && !firmware.isEmpty()) {
       device.setFirmware(firmware);
     }
-    if (name != null && !name.isEmpty()) {
-      device.setFriendlyName(name);
-    }
-    if (isAdmin && req.userId() != null) {
+    // Both userId and displayOrder are pre-validated to be positive Long values
+    if (req.userId() != null) {
       device.setUserId(req.userId());
     }
-    if (req.displayOrder() != null && req.displayOrder() > 0) {
+    if (req.displayOrder() != null) {
       device.setDisplayOrder(req.displayOrder());
     }
 
+    // Common fields
+    if (name != null && !name.isEmpty()) {
+      device.setFriendlyName(name);
+    }
+    if (req.location() != null) {
+      device.setLocation(req.location());
+    }
+    if (req.description() != null) {
+      device.setDescription(req.description());
+    }
+    if (req.imageUrl() != null) {
+      device.setImageUrl(req.imageUrl());
+    }
+
     Device saved = deviceRepository.save(device);
+    // If an admin is updating a device, we want to evict the cache for the user that owns the device
     evictDeviceCaches(deviceId, isAdmin ? saved.getUserId() : requestingUserId);
     return DeviceUtil.convertDeviceToResponse(saved);
   }

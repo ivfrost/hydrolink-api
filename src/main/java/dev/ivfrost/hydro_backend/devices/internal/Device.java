@@ -46,7 +46,6 @@ public class Device implements Serializable {
   @Column(name = "friendly_name")
   private String friendlyName;
 
-
   @Size(max = 255)
   private String location;
 
@@ -58,15 +57,21 @@ public class Device implements Serializable {
   @Column(name = "technical_name", nullable = false)
   private String technicalName;
 
-
   @Size(max = 255)
   @Column(name = "secret")
   private String secret;
+
+  @Size(max = 255)
+  @Column(name = "description")
+  private String description;
 
   @Pattern(regexp = "^((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$")
   @Size(max = 15)
   @Column
   private String ip;
+
+  @Column(name = "image_url")
+  private String imageUrl;
 
   @CreationTimestamp
   @Column(name = "created_at", nullable = false)

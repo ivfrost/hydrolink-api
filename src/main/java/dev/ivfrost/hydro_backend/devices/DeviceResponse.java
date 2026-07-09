@@ -13,6 +13,8 @@ public record DeviceResponse(
     @NotNull String location,
     @NotNull String firmware,
     @NotNull String technicalName,
+    @NotNull String description,
+    @NotNull String imageUrl,
     @NotNull String ip,
     @NotNull Instant createdAt,
     @NotNull Instant updatedAt,

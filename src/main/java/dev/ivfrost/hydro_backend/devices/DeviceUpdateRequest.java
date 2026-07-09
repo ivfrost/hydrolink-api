@@ -6,7 +6,10 @@ public record DeviceUpdateRequest(
     String friendlyName,
     String technicalName,
     String firmware,
-    Long userId,
+    String location,
+    String description,
+    String imageUrl,
+    @Positive Long userId,
     @Positive Long displayOrder
 ) {
 

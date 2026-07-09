@@ -138,48 +138,6 @@ public class DeviceController {
         ApiResponse.success(HttpStatus.OK, "Device secret regenerated successfully", response));
   }
 
-  @Operation(summary = "Update live device order",
-      description = "Updates the live order of devices for the currently authenticated user. This order is stored in Redis and can be persisted to the database using the save endpoint.")
-  @PostMapping("/me/devices/order/live")
-  public ResponseEntity<ApiResponse<Void>> updateLiveOrder(
-      @RequestBody DeviceOrderSaveRequest req) {
-
-    deviceService.updateLiveOrder(currentUserId(), req.deviceIds());
-
-    return ResponseEntity.ok(
-        ApiResponse.success(HttpStatus.OK, "Live device order updated successfully")
-    );
-  }
-
-  @Operation(
-      summary = "Persist user device order in database",
-      description = "Commits the device order stored in Redis to the database."
-  )
-  @PutMapping("/me/devices/order/save")
-  public ResponseEntity<ApiResponse<Void>> saveDeviceOrder() {
-    deviceService.persistDeviceOrder(currentUserId());
-    return ResponseEntity.ok(
-        ApiResponse.success(HttpStatus.OK, "Device order persisted to database successfully")
-    );
-  }
-
-
-  @Operation(summary = "Update device friendlyName",
-      description = "Updates the friendlyName of a device linked to the currently authenticated user.")
-  @PutMapping("/me/devices/{deviceId}/friendly-name")
-  public ResponseEntity<ApiResponse<DeviceResponse>> updateDeviceNickname(
-      @PathVariable("deviceId") Long deviceId,
-      @RequestBody @Valid DeviceUpdateRequest req) {
-    return ResponseEntity.status(HttpStatus.OK)
-        .body(ApiResponse.success(HttpStatus.OK, "Device nickname updated successfully",
-            deviceService.updateDeviceFriendlyName(deviceId, req)));
-  }
-
-  // Helper method to get the current authenticated user's ID from the security context
-  private Long currentUserId() {
-    return Long.parseLong(SecurityContextHolder.getContext().getAuthentication().getName());
-  }
-
   /**
    * Webhook for MQTT broker authentication.
    * This endpoint is called by the MQTT broker to verify the validity of the MQTT token
