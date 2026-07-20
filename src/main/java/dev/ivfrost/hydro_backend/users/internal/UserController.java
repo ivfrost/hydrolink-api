@@ -6,6 +6,7 @@ import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUnlinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
+import dev.ivfrost.hydro_backend.users.AdminUserRegisterRequest;
 import dev.ivfrost.hydro_backend.users.AuthResponse;
 import dev.ivfrost.hydro_backend.users.RefreshTokenRequest;
 import dev.ivfrost.hydro_backend.users.UserAuthRequest;
@@ -41,6 +42,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -318,13 +320,27 @@ public class UserController {
   @Operation(
       summary = "Update device information for current user",
       description = "Updates device information for the currently authenticated user.")
-  @PutMapping("/me/devices/{deviceId}")
+  @PatchMapping("/me/devices/{deviceId}")
   public ResponseEntity<ApiResponse<DeviceResponse>> updateDeviceForCurrentUser(
       @PathVariable Long deviceId,
       @Valid @RequestBody DeviceUpdateRequest req) {
     DeviceResponse updatedDevice = userService.updateDeviceForCurrentUser(deviceId, req);
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device updated successfully", updatedDevice));
+  }
+
+  /*
+  * Persists UI user device display order for the currently authenticated user.
+   */
+  @Operation(
+      summary = "Update devices display order for current user",
+      description = "Persists UI user devices display order for the currently authenticated user.")
+  @PutMapping("/me/devices/display-order")
+  public ResponseEntity<ApiResponse<DeviceResponse>> updateDeviceDisplayOrderForCurrentUser(
+      @RequestParam List<Long> displayOrder) {
+    userService.persistDeviceOrderForCurrentUser(displayOrder);
+    return ResponseEntity.status(HttpStatus.OK)
+        .body(ApiResponse.success(HttpStatus.OK, "Devices display order updated successfully"));
   }
 
   /*
@@ -351,12 +367,12 @@ public class UserController {
       description = "Creates a new user account. Allows setting user roles.")
   @PostMapping("/users/new")
   public ResponseEntity<ApiResponse<AuthResponse>> registerUsersAdmin(
-      @Valid @RequestBody UserRegisterRequest req,
-      @RequestBody List<User.Role> roles) {
+      @Valid @RequestBody AdminUserRegisterRequest req) {
+
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(
             ApiResponse.success(HttpStatus.CREATED, "User registered successfully",
-                userService.addUser(req, roles)));
+                userService.addUser(req.getUserDetails(), req.getRoles())));
   }
 
   /**

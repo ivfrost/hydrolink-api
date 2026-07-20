@@ -5,14 +5,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
-import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,7 +23,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "devices")
+@Table(name = "devices", indexes = @Index(columnList = "user_id"))
 @Entity
 public class Device implements Serializable {
 
@@ -58,7 +57,7 @@ public class Device implements Serializable {
   private String technicalName;
 
   @Size(max = 255)
-  @Column(name = "secret")
+  @Column(name = "secret", unique = true)
   private String secret;
 
   @Size(max = 255)
@@ -74,29 +73,19 @@ public class Device implements Serializable {
   private String imageUrl;
 
   @CreationTimestamp
-  @Column(name = "created_at", nullable = false)
+  @Column(name = "created_at", nullable = false, columnDefinition = "TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
   private Instant createdAt;
 
   @UpdateTimestamp
-  @Column(name = "updated_at", nullable = false)
+  @Column(name = "updated_at", nullable = false, columnDefinition = "TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
   private Instant updatedAt;
 
-  @Column(name = "linked_at")
+  @Column(name = "linked_at", columnDefinition = "TIMESTAMP(6) WITH TIME ZONE")
   private Instant linkedAt;
-
-  @Column(name = "last_seen")
-  private Instant lastSeen;
 
   @Column(name = "user_id")
   private Long userId;
 
   @Column(name = "display_order")
   private Long displayOrder;
-
-  @PrePersist
-  protected void onCreate() {
-    if (this.lastSeen == null) {
-      this.lastSeen = Instant.now();
-    }
-  }
 }

@@ -19,7 +19,6 @@ public record DeviceResponse(
     @NotNull Instant createdAt,
     @NotNull Instant updatedAt,
     @NotNull Instant linkedAt,
-    @NotNull Instant lastSeen,
     @NotNull Long userId,
     @NotNull Long displayOrder) {
 

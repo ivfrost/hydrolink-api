@@ -4,8 +4,8 @@ import dev.ivfrost.hydro_backend.devices.internal.Device;
 import dev.ivfrost.hydro_backend.devices.internal.DeviceRepository;
 import dev.ivfrost.hydro_backend.tokens.EncryptionUtil;
 import dev.ivfrost.hydro_backend.users.internal.User;
-import dev.ivfrost.hydro_backend.users.internal.User.Role;
 import dev.ivfrost.hydro_backend.users.internal.UserRepository;
+import dev.ivfrost.hydro_backend.users.internal.UserRole;
 import java.time.Instant;
 import java.util.List;
 import lombok.NonNull;
@@ -50,17 +50,19 @@ public class AppDataInit implements ApplicationRunner {
   public void run(@NonNull ApplicationArguments args) {
 
     if (userRepository.findByUsername("admin").isEmpty()) {
-      userRepository.save(User.builder()
+      User adminUser = User.builder()
           .username("admin")
           .fullName("Admin User")
           .password(passwordEncoder.encode(adminPassword))
           .email(adminEmail)
           .createdAt(Instant.now())
           .updatedAt(Instant.now())
-          .roles(List.of(Role.ADMIN, Role.USER))
-          .build());
+          .build();
+      adminUser.getRoles().add(new UserRole(adminUser, UserRole.Role.ADMIN));
+      userRepository.save(adminUser);
     }
     if (userRepository.findByUsername(apiMqttUsername).isEmpty()) {
+      User mqttApiUser =
       userRepository.save(User.builder()
           .username(apiMqttUsername)
           .fullName("MQTT API User")
@@ -68,8 +70,9 @@ public class AppDataInit implements ApplicationRunner {
           .email(String.format("%s@internal.hydro", apiMqttUsername))
           .createdAt(Instant.now())
           .updatedAt(Instant.now())
-          .roles(List.of(Role.USER))
           .build());
+      mqttApiUser.getRoles().add(new UserRole(mqttApiUser, UserRole.Role.USER));
+      userRepository.save(mqttApiUser);
     }
   }
 

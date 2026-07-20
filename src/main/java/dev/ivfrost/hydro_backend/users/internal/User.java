@@ -1,21 +1,26 @@
 package dev.ivfrost.hydro_backend.users.internal;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -76,22 +81,19 @@ public class User implements Serializable {
   private String address;
 
   @CreationTimestamp
-  @Column(name = "created_at", nullable = false, updatable = false)
+  @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
   private Instant createdAt;
 
   @UpdateTimestamp
-  @Column(name = "updated_at", nullable = false)
+  @Column(name = "updated_at", nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
   private Instant updatedAt;
 
-  @Column(name = "deleted_at")
+  @Column(name = "deleted_at", columnDefinition = "TIMESTAMP WITH TIME ZONE")
   private Instant deletedAt;
 
-  @ElementCollection
-  @Enumerated(EnumType.STRING)
-  @Fetch(FetchMode.JOIN)
-  @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
-  @Column(name = "role", nullable = false)
-  private List<Role> roles;
+  @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+  @Builder.Default
+  private List<UserRole> roles = new ArrayList<>();
 
   @Column(name = "settings", columnDefinition = "text")
   private String settings;
@@ -102,10 +104,6 @@ public class User implements Serializable {
   @Builder.Default
   @Column(name = "is_enabled", nullable = false)
   private boolean isEnabled = true;
-
-  public enum Role {
-    USER, ADMIN
-  }
 
 }
 

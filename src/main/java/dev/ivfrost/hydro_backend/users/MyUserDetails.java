@@ -20,7 +20,7 @@ public class MyUserDetails implements UserDetails {
     }
     return user.getRoles().stream()
         .map(role -> {
-          String rn = role.name();
+          String rn = role.getRole().toString();
           return new SimpleGrantedAuthority(rn.startsWith("ROLE_") ? rn : "ROLE_" + rn);
         })
         .toList();

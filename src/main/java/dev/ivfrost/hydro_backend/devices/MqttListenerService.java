@@ -70,7 +70,6 @@ class MqttListenerService {
               String[] tokens = topic.split("/");
               String key = tokens[1];
               log.debug("Received MQTT message from device {}: {}", key, new String(message.getPayload()));
-              deviceService.updateLastSeen(key);
             } catch (Exception e) {
               log.error("Error processing MQTT message: {}", e.getMessage());
             }

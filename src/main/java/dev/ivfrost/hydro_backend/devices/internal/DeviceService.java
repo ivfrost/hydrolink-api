@@ -266,23 +266,24 @@ public class DeviceService {
     String firmware = req.firmware();
     String name = req.friendlyName();
 
-    // Restricted fields
+    // Restricted fields: technicalName, firmware, userId
     if (technicalName != null && !technicalName.isEmpty()) {
       device.setTechnicalName(technicalName);
     }
     if (firmware != null && !firmware.isEmpty()) {
       device.setFirmware(firmware);
     }
-    // Both userId and displayOrder are pre-validated to be positive Long values
+    // userId and displayOrder have been prevalidated to be positive non-null Long values by
+    // the controller
     if (req.userId() != null) {
       device.setUserId(req.userId());
     }
-    if (req.displayOrder() != null) {
-      device.setDisplayOrder(req.displayOrder());
-    }
 
-    // Common fields
-    if (name != null && !name.isEmpty()) {
+
+    // Common fields: friendlyName, location, description, imageUrl, displayOrder
+    // They can be empty, app will show a fallback, like device key in the case of
+    // missing friendly name.
+    if (name != null) {
       device.setFriendlyName(name);
     }
     if (req.location() != null) {
@@ -291,8 +292,12 @@ public class DeviceService {
     if (req.description() != null) {
       device.setDescription(req.description());
     }
+    // TODO: dedicated endpoint for image upload and save the URL here afterwards.
     if (req.imageUrl() != null) {
       device.setImageUrl(req.imageUrl());
+    }
+    if (req.displayOrder() != null) {
+      device.setDisplayOrder(req.displayOrder());
     }
 
     Device saved = deviceRepository.save(device);
@@ -317,60 +322,15 @@ public class DeviceService {
   }
 
   /**
-   * Updates the last seen timestamp of a device to the current time. This should be called whenever
-   * the device interacts with the system (e.g., on MQTT connection, API request, etc.) to keep
-   * track of active devices.
-   *
-   * @param deviceId the ID of the device to update
-   * @throws DeviceNotFoundException if the device is not found
-   */
-  @Transactional
-  public void persistLastSeen(Long deviceId) {
-    Device device = deviceRepository.findById(deviceId)
-        .orElseThrow(() -> new DeviceNotFoundException(deviceId));
-
-    device.setLastSeen(Instant.now());
-    deviceRepository.save(device);
-  }
-
-  /**
-   * Updates the live order of devices for a user in Redis. This is used to maintain the display
-   * order of devices in the UI without hitting the database on every change.
-   *
-   * @param deviceIds the list of device IDs in the new order
-   */
-  public void updateLiveOrder(Long userId, List<Long> deviceIds) {
-    String key = "device_order:" + userId;
-
-    // Clear existing list
-    redisTemplate.delete(key);
-
-    // Push new order
-    redisTemplate.opsForList().rightPushAll(
-        key,
-        deviceIds.stream().map(String::valueOf).toList()
-    );
-  }
-
-  /**
-   * Persists the live device order from Redis to the database. This should be called when the user
-   * explicitly saves their device order or when they abandon the tab/page to ensure the order is
-   * not lost.
+   * Persists the order of devices for a specific user. The order is determined by the list of
+   * device IDs provided. Called when a user hits save and there was a change in the order of their
+   * devices in the UI.
    *
    * @param userId the ID of the user whose device order is being persisted
+   * @param deviceIds the list of device IDs in the desired order
    */
   @Transactional
-  public void persistDeviceOrder(Long userId) {
-    String key = "device_order:" + userId;
-    List<String> deviceIdStrings = redisTemplate.opsForList().range(key, 0, -1);
-    if (deviceIdStrings == null || deviceIdStrings.isEmpty()) {
-      return; // No order to persist
-    }
-
-    List<Long> deviceIds = deviceIdStrings.stream()
-        .map(Long::valueOf)
-        .toList();
-
+  public void persistDeviceOrder(Long userId, List<Long> deviceIds) {
     List<Device> userDevices = deviceRepository.findAllById(deviceIds);
     Map<Long, Device> deviceMap = userDevices.stream()
         .collect(Collectors.toMap(Device::getId, Function.identity()));
@@ -378,6 +338,7 @@ public class DeviceService {
     for (int i = 0; i < deviceIds.size(); i++) {
       Long deviceId = deviceIds.get(i);
       Device device = deviceMap.get(deviceId);
+      // Ownership check
       if (device != null && Objects.equals(device.getUserId(), userId)) {
         device.setDisplayOrder((long) (i + 1));
       }
@@ -420,16 +381,6 @@ public class DeviceService {
     );
   }
 
-  public void updateLastSeen(String deviceKey) {
-    boolean shouldPersist = deviceCacheService.updateLastSeen(deviceKey);
-    if (shouldPersist) {
-      Device device = deviceRepository.findByKey(deviceKey)
-          .orElseThrow(() -> new DeviceNotFoundException("Device not found for key: " + deviceKey));
-      device.setLastSeen(Instant.now());
-      deviceRepository.save(device);
-    }
-  }
-
   /*--------------------------*/
   /* Helper Methods */
   /*--------------------------*/
@@ -465,7 +416,6 @@ public class DeviceService {
         .macAddress(device.getMacAddress())
         .userId(device.getUserId())
         .linkedAt(device.getLinkedAt())
-        .lastSeen(device.getLastSeen())
         .displayOrder(device.getDisplayOrder())
         .build();
   }
@@ -573,9 +523,6 @@ public class DeviceService {
 class DeviceCacheService {
 
   private final DeviceRepository deviceRepository;
-  private final RedisTemplate<String, String> redisTemplate;
-  @Value("${cache.last-seen.expiration.ms}")
-  private String lastSeenExpirationMs;
 
   /**
    * Retrieves a device by its ID from cache. Cache is invalidated when the device is updated.
@@ -620,31 +567,4 @@ class DeviceCacheService {
     return deviceRepository.findAll(pageable);
   }
 
-  /**
-   * Updates the last seen timestamp of a device in Redis.
-   * Flushes to DB if the last saved
-   *
-   */
-  public boolean updateLastSeen(String deviceKey) {
-    Instant now = Instant.now();
-    String redisKey = "device_last_seen:" + deviceKey;
-    String cachedValue = redisTemplate.opsForValue().get(redisKey);
-
-    // If no cached value exists, set cache and persist to DB immediately
-    if (cachedValue == null) {
-      redisTemplate.opsForValue().set(redisKey, now.toString());
-      return true;
-    }
-
-    Instant lastCached = Instant.parse(cachedValue);
-    // If cached value, check if expiration time has passed since last persisted value
-    boolean shouldPersist = Duration.between(lastCached, now).toMillis() >= Long.parseLong(lastSeenExpirationMs);
-
-    if (shouldPersist) {
-      // Always update cache with current timestamp
-      redisTemplate.opsForValue().set(redisKey, now.toString());
-    }
-
-    return shouldPersist;
-  }
 }

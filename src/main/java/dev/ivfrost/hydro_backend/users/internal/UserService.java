@@ -20,7 +20,6 @@ import dev.ivfrost.hydro_backend.users.UserMqttResponse;
 import dev.ivfrost.hydro_backend.users.UserRecoveryRequest;
 import dev.ivfrost.hydro_backend.users.UserRegisterRequest;
 import dev.ivfrost.hydro_backend.users.UserResponse;
-import dev.ivfrost.hydro_backend.users.UserUpdateLastOnlineEvent;
 import dev.ivfrost.hydro_backend.users.UserUpdateRequest;
 import dev.ivfrost.hydro_backend.users.UsernameTakenException;
 import jakarta.transaction.Transactional;
@@ -35,7 +34,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -93,7 +91,7 @@ public class UserService {
     List<TokenResponse> tokens = userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
         user.getUsername(),
         user.getEmail(),
-        user.getRoles().stream().map(Enum::name).toList(),
+        user.getRoles().stream().map(role -> role.getRole().toString()).toList(),
         user.getId()
     ));
     return new AuthResponse(convertUserToResponse(user), tokens);
@@ -108,7 +106,7 @@ public class UserService {
    * @throws UsernameTakenException if the username is already taken
    */
   @Transactional
-  AuthResponse addUser(UserRegisterRequest req, List<User.Role> roles) {
+  AuthResponse addUser(UserRegisterRequest req, List<UserRole.Role> roles) {
     if (isUserAuthenticated()) {
       throw new IllegalStateException("Cannot register new user while authenticated.");
     }
@@ -119,14 +117,19 @@ public class UserService {
       throw new EmailTakenException(req.email());
     }
     User user = convertRequestToUser(req);
-    user.setRoles(roles != null ? roles : List.of(User.Role.USER));
+    // MapsId guarantees that the userId in UserRole is populated with the correct value
+    user.getRoles().addAll(
+        roles.stream()
+            .map(role -> new UserRole(user, role))
+            .toList()
+    );
     User savedUser = userRepository.save(user);
 
     List<TokenResponse> recoveryTokens = userTokenProvider.generateRecoveryCodes(savedUser.getId());
     List<TokenResponse> accessRefreshTokens = userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
         savedUser.getUsername(),
         savedUser.getEmail(),
-        savedUser.getRoles().stream().map(Enum::name).toList(),
+        savedUser.getRoles().stream().map(role -> role.getRole().toString()).toList(),
         savedUser.getId()
     ));
     List<TokenResponse> allTokens = Stream.concat(recoveryTokens.stream(), accessRefreshTokens.stream()).toList();
@@ -145,9 +148,9 @@ public class UserService {
   @Transactional
   AuthResponse addUser(UserRegisterRequest req) {
     boolean isFirstUser = userRepository.count() == 0;
-    List<User.Role> roles = isFirstUser
-        ? List.of(User.Role.ADMIN, User.Role.USER)
-        : List.of(User.Role.USER);
+    List<UserRole.Role> roles = isFirstUser
+        ? List.of(UserRole.Role.ADMIN, UserRole.Role.USER)
+        : List.of(UserRole.Role.USER);
     return addUser(req, roles);
   }
 
@@ -371,7 +374,7 @@ public class UserService {
     return userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
         user.getUsername(),
         user.getEmail(),
-        user.getRoles().stream().map(Enum::name).toList(),
+        user.getRoles().stream().map(role -> role.getRole().toString()).toList(),
         user.getId()
     ));
   }
@@ -408,13 +411,19 @@ public class UserService {
   }
 
   /*
-    * Updates a device linked to the currently authenticated user.
+   * Updates a device linked to the currently authenticated user.
    */
   DeviceResponse updateDeviceForCurrentUser(long deviceId, DeviceUpdateRequest req) {
     User user = getCurrentUser();
-    boolean isAdmin = user.getRoles().contains(User.Role.ADMIN);
-
+    boolean isAdmin = user.getRoles().contains(UserRole.Role.ADMIN);
     return userDeviceProvider.updateUserDevice(deviceId, req, user.getId(), isAdmin);
+  }
+
+  /*
+   * Persists UI device display order for the currently authenticated user.
+   */
+  void persistDeviceOrderForCurrentUser(List<Long> deviceOrder) {
+    userDeviceProvider.persistDeviceOrder(getCurrentUserId(), deviceOrder);
   }
 
   /*
@@ -432,47 +441,6 @@ public class UserService {
       return userRepository.findByEmail(email).isEmpty();
     }
     return false; // neither field provided — nothing to validate
-  }
-
-  /*====== REDIS STATE ======*/
-
-  /**
-   * Updates the currently authenticated user's last online value.
-   *
-   * @param username the username of the user to update the last online timestamp for
-   */
-  public void updateLastOnline(String username) {
-    redisTemplate.opsForValue()
-        .set("user:lastOnline:" + username, String.valueOf(System.currentTimeMillis()));
-  }
-
-  @ApplicationModuleListener
-  void on(UserUpdateLastOnlineEvent e) {
-    updateLastOnline(e.username());
-  }
-
-  /**
-   * Retrieves the currently authenticated user's last online value.
-   *
-   * @param username the username of the user to retrieve the last online timestamp for
-   * @return the last online timestamp in milliseconds, or null if not found
-   */
-  public Long getLastOnline(String username) {
-    String lastOnlineStr = (String) redisTemplate.opsForValue().get("user:lastOnline:" + username);
-
-    if (lastOnlineStr != null) {
-      return Long.parseLong(lastOnlineStr);
-    }
-    return null;
-  }
-
-  public boolean isOnline(String username) {
-    Long lastOnline = getLastOnline(username);
-    if (lastOnline == null) {
-      return false;
-    }
-    long currentTime = System.currentTimeMillis();
-    return (currentTime - lastOnline) <= ONLINE_THRESHOLD_MS;
   }
 
   /*====== HELPERS ======*/
@@ -525,7 +493,7 @@ public class UserService {
       return null;
     }
     List<String> roleList = user.getRoles().stream()
-        .map(Enum::name)
+        .map(role -> role.getRole().toString())
         .toList();
 
     return new UserResponse(

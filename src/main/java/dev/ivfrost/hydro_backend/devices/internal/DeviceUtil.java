@@ -33,7 +33,6 @@ class DeviceUtil {
         .createdAt(device.getCreatedAt())
         .updatedAt(device.getUpdatedAt())
         .linkedAt(device.getLinkedAt())
-        .lastSeen(device.getLastSeen())
         .userId(device.getUserId())
         .displayOrder(device.getDisplayOrder())
         .build();

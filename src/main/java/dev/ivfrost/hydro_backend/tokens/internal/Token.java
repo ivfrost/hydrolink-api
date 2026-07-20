@@ -8,14 +8,15 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Size;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import lombok.Data;
 
 @Data
 @Entity
-@Table(name = "tokens")
+@Table(name = "tokens", indexes = @Index(columnList = "user_id"))
 public class Token {
 
   @Id
@@ -23,13 +24,13 @@ public class Token {
   private long id;
   @Convert(converter = TokenValueConverter.class)
   @Size(max = 255)
-  @Column(nullable = false)
+  @Column(nullable = false, unique = true)
   private String value;
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   private TokenType type;
-  @Column(name = "expiry_date", nullable = true)
-  private LocalDateTime expiryDate;
+  @Column(name = "expiry_date", nullable = true, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+  private Instant expiryDate;
   @Column(name = "user_id", nullable = false)
   private long userId;
 
