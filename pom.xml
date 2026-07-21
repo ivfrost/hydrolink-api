@@ -107,10 +107,6 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <artifactId>spring-modulith-events-amqp</artifactId>
-      <groupId>org.springframework.modulith</groupId>
-    </dependency>
-    <dependency>
       <artifactId>rest-assured</artifactId>
       <groupId>io.rest-assured</groupId>
       <scope>test</scope>
@@ -184,11 +180,6 @@
     <dependency>
       <artifactId>spring-boot-starter-amqp</artifactId>
       <groupId>org.springframework.boot</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>spring-rabbit-test</artifactId>
-      <groupId>org.springframework.amqp</groupId>
-      <scope>test</scope>
     </dependency>
     <dependency>
       <artifactId>h2</artifactId>

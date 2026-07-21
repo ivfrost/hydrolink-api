@@ -54,31 +54,9 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: rabbitmq_dev
-    restart: on-failure:3
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-    ports:
-      - '5672:5672'
-      - '15672:15672'
-    volumes:
-      - rabbitmq:/var/lib/rabbitmq
-    healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
-      start_period: 20s
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - hydro-network
-
 volumes:
   pgdata:
   cache:
-  rabbitmq:
 
 networks:
   hydro-network:

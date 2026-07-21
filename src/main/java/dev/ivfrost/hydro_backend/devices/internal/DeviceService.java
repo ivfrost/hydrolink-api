@@ -5,7 +5,6 @@ import dev.ivfrost.hydro_backend.devices.DeviceAuthRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceFetchException;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkException;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
-import dev.ivfrost.hydro_backend.devices.DeviceLoadEvent;
 import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
@@ -489,12 +488,6 @@ public class DeviceService {
     return devices.stream()
         .map(device -> "hydro/" + device.getKey() + "/#")
         .toList();
-  }
-
-  @ApplicationModuleListener
-  public void on(DeviceLoadEvent e) {
-    getDevicesByUserId(e.userId());
-    log.info("Loaded devices for user ID {} into cache", e.userId());
   }
 
   private void evictDeviceCaches(Long deviceId, Long userId) {
