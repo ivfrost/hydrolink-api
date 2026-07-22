@@ -41,12 +41,15 @@ public class Device implements Serializable {
   @Column(nullable = false, name = "mac_address", unique = true)
   private String macAddress;
 
-  @Size(min = 1, max = 40)
+  @Size(max = 40)
   @Column(name = "friendly_name")
   private String friendlyName;
 
   @Size(max = 255)
-  private String location;
+  private String locationLabel;
+
+  @Size(max = 255)
+  private String locationCoordinates;
 
   @Size(max = 20)
   @Column(nullable = false)

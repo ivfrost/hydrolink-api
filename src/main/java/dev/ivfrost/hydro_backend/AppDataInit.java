@@ -89,7 +89,8 @@ public class AppDataInit implements ApplicationRunner {
             .secret(encryptionUtil.encrypt(device1Secret))
             .technicalName("hydro-device-1")
             .friendlyName("Living Room")
-            .location("Living Room")
+            .locationLabel("Living Room")
+            .locationCoordinates("37.7749° N, 122.4194° W")
             .build());
       }
       if (deviceRepository.findByKey(device2Key).isEmpty()) {
@@ -100,7 +101,8 @@ public class AppDataInit implements ApplicationRunner {
             .firmware("1.0.0")
             .technicalName("hydro-device-2")
             .friendlyName("Kitchen")
-            .location("Kitchen")
+            .locationLabel("Kitchen")
+            .locationCoordinates("37.7749° N, 122.4194° W")
             .build());
       }
     };

@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 public class DeviceLinkProviderImpl implements DeviceLinkProvider {
 
   private final DeviceService deviceService;
-  private final DeviceRepository deviceRepository;
 
   @Override
   public DeviceResponse linkDevice(DeviceLinkRequest req, Long userId) {
@@ -23,6 +22,6 @@ public class DeviceLinkProviderImpl implements DeviceLinkProvider {
 
   @Override
   public void unlinkDevice(DeviceUnlinkRequest req, Long userId) {
-    deviceService.unlinkDevice(req.deviceId(), userId);
+    deviceService.unlinkDevice(req.deviceKey(), userId);
   }
 }

@@ -107,6 +107,25 @@ services:
     networks:
       - hydro-network-stage
 
+  minio:
+    image: minio/minio
+    container_name: minio_dev
+    restart: on-failure:3
+    environment:
+      MINIO_SERVER_URL: ${MINIO_SERVER_EXT_URL}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_DEFAULT_BUCKETS: ${MINIO_DEFAULT_BUCKETS}
+    networks:
+      - hydro-network
+    command: server /data --console-address ":9001"
+    volumes:
+      - miniodata:/data
+    deploy:
+      resources:
+        limits:
+          memory: 300m
+
 volumes:
   pgdata-stage:
   cache-stage:

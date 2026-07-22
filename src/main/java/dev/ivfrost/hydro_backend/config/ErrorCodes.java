@@ -23,6 +23,10 @@ public final class ErrorCodes {
   public static final String DEVICE_FETCH_FAILED = "DEVICE_FETCH_FAILED";
   public static final String DUPLICATE_MAC_ADDRESS = "DUPLICATE_MAC_ADDRESS";
 
+  // Storage
+  public static final String FILE_UPLOAD_EXCEPTION = "FILE_UPLOAD_EXCEPTION";
+  public static final String FILE_DOWNLOAD_EXCEPTION = "FILE_DOWNLOAD_EXCEPTION";
+
   // Validation
   public static final String VALIDATION_FAILED = "VALIDATION_FAILED";
 

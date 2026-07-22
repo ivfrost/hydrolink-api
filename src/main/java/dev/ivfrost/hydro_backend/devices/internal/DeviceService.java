@@ -150,16 +150,17 @@ public class DeviceService {
   }
 
   /**
-   * Unlinks a device from a user by device ID. Only the owner can unlink their device.
+   * Unlinks a device from a user by device key. The device will no longer be associated with the
+   * user and will be available for linking by another user or themselves in the future.
    *
-   * @param deviceId the ID of the device to unlink
+   * @param deviceKey the key of the device to unlink
    * @throws DeviceNotFoundException if the device is not found
    * @throws IllegalArgumentException if the device does not belong to the user
    */
   @Transactional
-  public void unlinkDevice(Long deviceId, Long userId) {
-    Device device = deviceRepository.findById(deviceId)
-        .orElseThrow(() -> new DeviceNotFoundException(deviceId));
+  public void unlinkDevice(String deviceKey, Long userId) {
+    Device device = deviceRepository.findByKey(deviceKey)
+        .orElseThrow(() -> new DeviceNotFoundException("Device not found for key: " + deviceKey));
 
     if (device.getUserId() == null || !Objects.equals(device.getUserId(), userId)) {
       throw new DeviceLinkException("Device is not linked to this user");
@@ -168,7 +169,7 @@ public class DeviceService {
     device.setUserId(null);
     device.setDisplayOrder(0L);
     deviceRepository.save(device);
-    evictDeviceCaches(deviceId, userId);
+    evictDeviceCaches(device.getId(), userId);
   }
 
   /**
@@ -278,15 +279,20 @@ public class DeviceService {
       device.setUserId(req.userId());
     }
 
-
     // Common fields: friendlyName, location, description, imageUrl, displayOrder
     // They can be empty, app will show a fallback, like device key in the case of
     // missing friendly name.
     if (name != null) {
       device.setFriendlyName(name);
     }
-    if (req.location() != null) {
-      device.setLocation(req.location());
+    // Users still have the option to label their device location, since most times GPS
+    // location name won't be the most useful.
+    if (req.locationLabel() != null) {
+      device.setLocationLabel(req.locationLabel());
+    }
+    // Location coordinates are set on demand to whatever location the App gets from the phone.
+    if (req.locationCoordinates() != null) {
+      device.setLocationCoordinates(req.locationCoordinates());
     }
     if (req.description() != null) {
       device.setDescription(req.description());

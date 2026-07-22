@@ -7,6 +7,8 @@ import dev.ivfrost.hydro_backend.devices.DeviceFetchException;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkException;
 import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
 import dev.ivfrost.hydro_backend.devices.DuplicateMacAddressException;
+import dev.ivfrost.hydro_backend.storage.FileDownloadException;
+import dev.ivfrost.hydro_backend.storage.FileUploadException;
 import dev.ivfrost.hydro_backend.tokens.ExpiredVerificationToken;
 import dev.ivfrost.hydro_backend.tokens.RecoveryTokenMismatchException;
 import dev.ivfrost.hydro_backend.tokens.RecoveryTokenNotFoundException;
@@ -14,6 +16,7 @@ import dev.ivfrost.hydro_backend.tokens.TokenNotFoundException;
 import dev.ivfrost.hydro_backend.users.UserDisabledException;
 import dev.ivfrost.hydro_backend.users.UserNotAuthenticatedException;
 import dev.ivfrost.hydro_backend.users.UsernameTakenException;
+import java.io.IOException;
 import org.springframework.security.access.AccessDeniedException;
 import java.util.HashMap;
 import java.util.Map;
@@ -151,4 +154,26 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.CONFLICT)
         .body(ApiResponse.error(HttpStatus.CONFLICT, ErrorCodes.DUPLICATE_MAC_ADDRESS, ex.getMessage()));
   }
+
+  @ExceptionHandler(FileUploadException.class)
+  public ResponseEntity<ApiResponse<Void>> handleStorageException(
+      FileUploadException ex) {
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCodes.FILE_UPLOAD_EXCEPTION, ex.getMessage()));
+  }
+
+  @ExceptionHandler(FileDownloadException.class)
+  public ResponseEntity<ApiResponse<Void>> handleFileDownloadException(
+      FileDownloadException ex) {
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCodes.FILE_DOWNLOAD_EXCEPTION, ex.getMessage()));
+  }
+
+  @ExceptionHandler(IOException.class)
+  public ResponseEntity<ApiResponse<Void>> handleIOException(IOException ex) {
+    return ResponseEntity
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, "IO_ERROR", ex.getMessage()));
+  }
+
 }

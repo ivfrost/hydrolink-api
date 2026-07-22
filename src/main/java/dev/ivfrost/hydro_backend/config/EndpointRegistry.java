@@ -21,7 +21,8 @@ public class EndpointRegistry {
       "/v1/users/password/reset",
       "/v1/validation/**",
       "/v1/internal/mqtt/**",
-      "/actuator/**"
+      "/actuator/**",
+      "/v1/storage/files/**" // Uploads require auth at method level
   );
   private static final List<String> SWAGGER = List.of(
       "/swagger-ui.html",

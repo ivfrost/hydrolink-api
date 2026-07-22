@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import org.apache.hc.core5.http.HttpHeaders;
-import org.jspecify.annotations.Nullable;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
