@@ -30,6 +30,10 @@ public final class ErrorCodes {
   // Validation
   public static final String VALIDATION_FAILED = "VALIDATION_FAILED";
 
+
+  // Others
+  public static final String IO_ERROR = "IO_ERROR";
+
   private ErrorCodes() {
     // constants only
   }

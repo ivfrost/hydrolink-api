@@ -1,0 +1,5 @@
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS image_url VARCHAR(255),
+    DROP COLUMN IF EXISTS profile_pic;
+
+DROP TABLE IF EXISTS event_publication CASCADE;

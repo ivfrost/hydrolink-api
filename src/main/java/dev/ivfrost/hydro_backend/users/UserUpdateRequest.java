@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import org.hibernate.validator.constraints.URL;
 
 public record UserUpdateRequest(
     @Size(min = 5, max = 20)
@@ -29,6 +30,9 @@ public record UserUpdateRequest(
 
     @Size(max = 100)
     String address,
+
+    @URL
+    String imageUrl,
 
     String settings
 ) {

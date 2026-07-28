@@ -16,7 +16,10 @@ import dev.ivfrost.hydro_backend.tokens.TokenNotFoundException;
 import dev.ivfrost.hydro_backend.users.UserDisabledException;
 import dev.ivfrost.hydro_backend.users.UserNotAuthenticatedException;
 import dev.ivfrost.hydro_backend.users.UsernameTakenException;
+import jakarta.validation.ConstraintViolationException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.security.access.AccessDeniedException;
 import java.util.HashMap;
 import java.util.Map;
@@ -75,14 +78,14 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(ExpiredVerificationToken.class)
   public ResponseEntity<ApiResponse<Void>> handleExpiredVerificationToken(
       ExpiredVerificationToken ex) {
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+    return ResponseEntity.badRequest()
         .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ErrorCodes.TOKEN_EXPIRED, ex.getMessage()));
   }
 
   @ExceptionHandler(JWTCreationException.class)
   public ResponseEntity<ApiResponse<Void>> handleJWTCreationException(
       JWTCreationException ex) {
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+    return ResponseEntity.internalServerError()
         .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCodes.TOKEN_CREATION_FAILED, ex.getMessage()));
   }
 
@@ -110,7 +113,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(DeviceLinkException.class)
   public ResponseEntity<ApiResponse<Void>> handleDeviceLinkException(
       DeviceLinkException ex) {
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+    return ResponseEntity.badRequest()
         .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ErrorCodes.DEVICE_LINK_FAILED, ex.getMessage()));
   }
 
@@ -119,19 +122,6 @@ public class GlobalExceptionHandler {
       DeviceFetchException ex) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND)
         .body(ApiResponse.error(HttpStatus.NOT_FOUND, ErrorCodes.DEVICE_FETCH_FAILED, ex.getMessage()));
-  }
-
-  @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(
-      MethodArgumentNotValidException ex) {
-    Map<String, String> errors = new HashMap<>();
-    ex.getBindingResult()
-        .getFieldErrors()
-        .forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-        .body(
-            ApiResponse.error(HttpStatus.BAD_REQUEST, ErrorCodes.VALIDATION_FAILED,
-                "Validation failed for one or more fields.", errors));
   }
 
   @ExceptionHandler(RecoveryTokenNotFoundException.class)
@@ -158,22 +148,61 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(FileUploadException.class)
   public ResponseEntity<ApiResponse<Void>> handleStorageException(
       FileUploadException ex) {
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+    return ResponseEntity.internalServerError()
         .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCodes.FILE_UPLOAD_EXCEPTION, ex.getMessage()));
   }
 
   @ExceptionHandler(FileDownloadException.class)
   public ResponseEntity<ApiResponse<Void>> handleFileDownloadException(
       FileDownloadException ex) {
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+    return ResponseEntity.internalServerError()
         .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCodes.FILE_DOWNLOAD_EXCEPTION, ex.getMessage()));
   }
 
   @ExceptionHandler(IOException.class)
   public ResponseEntity<ApiResponse<Void>> handleIOException(IOException ex) {
-    return ResponseEntity
-        .status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, "IO_ERROR", ex.getMessage()));
+    return ResponseEntity.internalServerError()
+        .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCodes.IO_ERROR, ex.getMessage()));
+  }
+
+  // Handles @Valid on @RequestBody / @RequestPart DTOs
+  @ExceptionHandler(MethodArgumentNotValidException.class)
+  public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(
+      MethodArgumentNotValidException ex) {
+    Map<String, String> errors = new HashMap<>();
+    ex.getBindingResult().getFieldErrors().forEach(error ->
+        errors.put(error.getField(), error.getDefaultMessage())
+    );
+
+    return ResponseEntity.badRequest()
+        .body(ApiResponse.error(
+            HttpStatus.BAD_REQUEST,
+            ErrorCodes.VALIDATION_FAILED,
+            "Validation failed for one or more fields.",
+            errors
+        ));
+  }
+
+  // Handles @Validated on Method Parameters, @RequestParam, @PathVariable
+  @ExceptionHandler(ConstraintViolationException.class)
+  public ResponseEntity<ApiResponse<Map<String, String>>> handleConstraintViolationException(
+      ConstraintViolationException ex) {
+    Map<String, String> errors = new HashMap<>();
+
+    ex.getConstraintViolations().forEach(cv -> {
+      String propertyPath = cv.getPropertyPath().toString();
+      // Clean up "updateCurrentUser.req.email" -> "email"
+      String fieldName = propertyPath.substring(propertyPath.lastIndexOf('.') + 1);
+      errors.put(fieldName, cv.getMessage());
+    });
+
+    return ResponseEntity.badRequest()
+        .body(ApiResponse.error(
+            HttpStatus.BAD_REQUEST,
+            ErrorCodes.VALIDATION_FAILED,
+            "Constraint validation failed.",
+            errors
+        ));
   }
 
 }

@@ -22,6 +22,10 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -38,6 +42,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,13 +54,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @Tag(name = "Users Module", description = "API endpoints for user management and authentication")
 @AllArgsConstructor
 @RestController
+@Validated
 @RequestMapping("/v1")
 public class UserController {
 
@@ -71,7 +75,7 @@ public class UserController {
   @io.swagger.v3.oas.annotations.parameters.RequestBody(
       content = @Content(
           examples = @ExampleObject(
-              name = "UserAuthRequest example",
+              name = "UserAuthExample",
               value = """
                   {
                     "email": "admin@hydro.com",
@@ -84,17 +88,15 @@ public class UserController {
   )
   @PostMapping("/users/auth")
   public ResponseEntity<ApiResponse<AuthResponse>> authenticateUser(
-      @RequestHeader (value = "x-client-platform", required = false) String clientPlatform,
+      @RequestHeader(value = "x-client-platform", required = false) String clientPlatform,
       @Valid @RequestBody UserAuthRequest userAuthRequest) {
     AuthResponse loginResponse = userService.authenticateUser(userAuthRequest);
     if (ClientPlatform.from(clientPlatform) == ClientPlatform.REACT_NATIVE) {
       return ResponseEntity.status(HttpStatus.OK)
-          .body(ApiResponse.success(HttpStatus.OK, "User authenticated successfully",
-              loginResponse
-          ));
+          .body(ApiResponse.success(HttpStatus.OK, "User authenticated successfully", loginResponse));
     }
-    var accessToken = extractToken(loginResponse, "AUTH_ACCESS_TOKEN");
-    var refreshToken = extractToken(loginResponse, "AUTH_REFRESH_TOKEN");
+    var accessToken = extractToken(loginResponse.tokens(), "AUTH_ACCESS_TOKEN");
+    var refreshToken = extractToken(loginResponse.tokens(), "AUTH_REFRESH_TOKEN");
     ResponseCookie refreshTokenCookie = generateRefreshTokenCookie(refreshToken, "/v1/users/auth/refresh");
     return ResponseEntity.status(HttpStatus.OK)
         .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString())
@@ -110,13 +112,13 @@ public class UserController {
   @io.swagger.v3.oas.annotations.parameters.RequestBody(
       content = @Content(
           examples = @ExampleObject(
-              name = "UserRegisterRequest example",
+              name = "UserRegisterExample",
               value = """
                   {
                     "email": "test_user@hydro.com",
                     "username": "test_user",
                     "fullName": "Test User",
-                    "password": "test_user",
+                    "password": "test_user"
                   }
                   """,
               summary = "Example of a user registration request"
@@ -125,23 +127,20 @@ public class UserController {
   )
   @PostMapping("/users")
   public ResponseEntity<ApiResponse<AuthResponse>> registerUser(
-      @RequestHeader (value = "x-client-platform", required = false) String clientPlatform,
+      @RequestHeader(value = "x-client-platform", required = false) String clientPlatform,
       @Valid @RequestBody UserRegisterRequest userRegisterRequest) {
 
     AuthResponse registerResponse = userService.addUser(userRegisterRequest);
     if (ClientPlatform.from(clientPlatform) == ClientPlatform.REACT_NATIVE) {
       return ResponseEntity.status(HttpStatus.CREATED)
-          .body(ApiResponse.success(HttpStatus.CREATED, "User registered successfully",
-             registerResponse
-          ));
+          .body(ApiResponse.success(HttpStatus.CREATED, "User registered successfully", registerResponse));
     }
-    var accessToken = extractToken(registerResponse, "AUTH_ACCESS_TOKEN");
-    var refreshToken = extractToken(registerResponse, "AUTH_REFRESH_TOKEN");
+    var accessToken = extractToken(registerResponse.tokens(), "AUTH_ACCESS_TOKEN");
+    var refreshToken = extractToken(registerResponse.tokens(), "AUTH_REFRESH_TOKEN");
     var recoveryCodes = registerResponse.tokens().stream()
         .filter(t -> t.type().equals("AUTH_RECOVERY_CODE"))
         .toList();
-    var webTokenList = Stream.concat(Stream.of(accessToken), recoveryCodes.stream())
-        .toList();
+    var webTokenList = Stream.concat(Stream.of(accessToken), recoveryCodes.stream()).toList();
     ResponseCookie refreshTokenCookie = generateRefreshTokenCookie(refreshToken, "/v1/users/auth/refresh");
     return ResponseEntity.status(HttpStatus.CREATED)
         .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString())
@@ -157,9 +156,9 @@ public class UserController {
   @GetMapping(value = "/users/validate")
   public ResponseEntity<ApiResponse<Boolean>> validateUsernameEmail(
       @Parameter(description = "Username to check availability for", example = "test_user")
-      @RequestParam(required = false) String username,
+      @RequestParam(required = false) @Size(min = 3, max = 20) String username,
       @Parameter(description = "Email to check availability for", example = "test_email@hydro.com")
-      @RequestParam(required = false) String email) {
+      @RequestParam(required = false) @Email String email) {
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Validation completed successfully",
             userService.validateUsernameEmail(username, email)
@@ -168,23 +167,22 @@ public class UserController {
 
   // ======= AUTHENTICATED USERS ENDPOINTS =======
 
-  /**
-   * Resets the user's password using one of the recovery codes provided on registration.
-   */
-  @Operation(summary = "Reset user password",
-      description = "Resets the user's password using one of the recovery codes provided on registration.")
+  @Operation(
+      summary = "Reset user password",
+      description = "Resets the user's password using one of the recovery codes provided on registration."
+  )
   @io.swagger.v3.oas.annotations.parameters.RequestBody(
       content = @Content(
           examples = @ExampleObject(
-              name = "UserRecoveryRequest example",
+              name = "UserRecoveryExample",
               value = """
                   {
                     "email": "test_user@hydro.com",
-                    "recoveryCode": "abcde12345",
-                    "newPassword": "new_secure_password"
+                    "recoveryCode": "f8b470fb0ed2c718",
+                    "newPassword": "new_secure_password_123"
                   }
                   """,
-              summary = "Example of a user password reset request"
+              summary = "Example of password reset payload using a recovery code"
           )
       )
   )
@@ -196,34 +194,47 @@ public class UserController {
         .body(ApiResponse.success(HttpStatus.OK, "Password reset successfully"));
   }
 
-  @Operation(summary = "Get authenticated user's profile",
-      description = "Retrieves the profile of the currently authenticated user.")
+  @Operation(
+      summary = "Get authenticated user's profile",
+      description = "Retrieves the profile of the currently authenticated user."
+  )
   @GetMapping("/me")
   public ResponseEntity<ApiResponse<UserResponse>> getCurrentUserProfile() {
     return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(HttpStatus.OK,
         "User profile retrieved successfully", userService.getCurrentUserProfile()));
   }
 
-  /*
-   * Updates the account settings of the currently authenticated user.
-   */
-  @Operation(summary = "Update user's account settings",
-      description = "Updates the account settings of the currently authenticated user.")
-  @PutMapping(value = "/me", consumes = "multipart/form-data")
+  @Operation(
+      summary = "Update user's account settings",
+      description = "Updates the account settings of the currently authenticated user."
+  )
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+      content = @Content(
+          examples = @ExampleObject(
+              name = "UserUpdateExample",
+              value = """
+                  {
+                    "fullName": "Test User Updated",
+                    "email": "updated_user@hydro.com",
+                    "currentPassword" "current_password"
+                  }
+                  """,
+              summary = "Example of updating account settings"
+          )
+      )
+  )
+  @PatchMapping(value = "/me")
   public ResponseEntity<ApiResponse<UserResponse>> updateCurrentUser(
-      @RequestPart("data") UserUpdateRequest userUpdateRequest,
-      @RequestPart(value = "profilePicture", required = false) MultipartFile profilePicture
-  ) {
+      @Valid @RequestBody UserUpdateRequest userUpdateRequest) {
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "User profile updated successfully",
-            userService.updateCurrentUser(userUpdateRequest, profilePicture)));
+            userService.updateCurrentUser(userUpdateRequest)));
   }
 
-  /**
-   * Deletes the currently authenticated user (soft delete).
-   */
-  @Operation(summary = "Delete authenticated user",
-      description = "Deletes the currently authenticated user (soft delete).")
+  @Operation(
+      summary = "Delete authenticated user",
+      description = "Deletes the currently authenticated user (soft delete)."
+  )
   @DeleteMapping("/me")
   public ResponseEntity<ApiResponse<Void>> deleteCurrentUser() {
     userService.deleteCurrentUser();
@@ -231,12 +242,23 @@ public class UserController {
         .body(ApiResponse.success(HttpStatus.NO_CONTENT, "User deleted successfully"));
   }
 
-  /*
-   * Retrieves new auth and refresh tokens if current refresh token is valid.
-   */
   @Operation(
       summary = "Get user auth JWT token",
-      description = "Refreshes the JWT tokens for an authenticated user.")
+      description = "Refreshes the JWT tokens for an authenticated user."
+  )
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+      content = @Content(
+          examples = @ExampleObject(
+              name = "RefreshTokenExample",
+              value = """
+                  {
+                    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  }
+                  """,
+              summary = "Example body payload for native/mobile clients"
+          )
+      )
+  )
   @PostMapping("/users/auth/refresh")
   public ResponseEntity<ApiResponse<List<TokenResponse>>> refreshToken(
       @RequestHeader(value = "x-client-platform", required = false) String clientPlatform,
@@ -253,11 +275,9 @@ public class UserController {
       throw new BadCredentialsException("Missing refresh token");
     }
 
-
     var tokens = userService.refreshTokens(refreshToken);
     if (platform == ClientPlatform.REACT_NATIVE) {
-      return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Tokens refreshed successfully",
-          tokens));
+      return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Tokens refreshed successfully", tokens));
     }
 
     var accessToken = extractToken(tokens, "AUTH_ACCESS_TOKEN");
@@ -265,17 +285,13 @@ public class UserController {
     ResponseCookie cookie = generateRefreshTokenCookie(newRefreshToken, "/v1/users/auth/refresh");
     return ResponseEntity.ok()
         .header(HttpHeaders.SET_COOKIE, cookie.toString())
-        .body(ApiResponse.success(HttpStatus.OK, "Tokens refreshed successfully",
-            List.of(accessToken)
-        ));
+        .body(ApiResponse.success(HttpStatus.OK, "Tokens refreshed successfully", List.of(accessToken)));
   }
 
-  /*
-   * Retrieves a RS256 signed JWT token for MQTT authentication.
-   */
   @Operation(
       summary = "Get MQTT auth JWT token",
-      description = "Returns a RS256 signed JWT token for MQTT authentication.")
+      description = "Returns a RS256 signed JWT token for MQTT authentication."
+  )
   @GetMapping("/users/auth/mqtt")
   public ResponseEntity<ApiResponse<UserMqttResponse>> getMqttAuthToken() {
     return ResponseEntity.status(HttpStatus.OK)
@@ -284,27 +300,48 @@ public class UserController {
         ));
   }
 
-  /*
-   * Link device to the currently authenticated user.
-   */
   @Operation(
       summary = "Link device to current user",
-      description = "Links a device to the currently authenticated user.")
+      description = "Links a device to the currently authenticated user."
+  )
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+      content = @Content(
+          examples = @ExampleObject(
+              name = "UserDeviceLinkExample",
+              value = """
+                  {
+                    "secret": "46bd52aa0f252f2abdee6842e17270da"
+                  }
+                  """,
+              summary = "Example payload for linking a device"
+          )
+      )
+  )
   @PostMapping("/me/devices/link")
   public ResponseEntity<ApiResponse<DeviceResponse>> linkDeviceToCurrentUser(
-      @RequestBody DeviceLinkRequest req) {
+      @Valid @RequestBody DeviceLinkRequest req) {
     DeviceResponse updatedDevice = userService.linkDeviceToCurrentUser(req);
     return ResponseEntity.status(HttpStatus.OK)
-        .body(ApiResponse.success(HttpStatus.OK,
-            "Device linked successfully", updatedDevice));
+        .body(ApiResponse.success(HttpStatus.OK, "Device linked successfully", updatedDevice));
   }
 
-  /*
-   * Unlink device from the currently authenticated user.
-   */
   @Operation(
       summary = "Unlink device from current user",
-      description = "Unlinks a device from the currently authenticated user.")
+      description = "Unlinks a device from the currently authenticated user."
+  )
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+      content = @Content(
+          examples = @ExampleObject(
+              name = "UserDeviceUnlinkExample",
+              value = """
+                  {
+                    "deviceKey": "HYDRO-A7EDS4"
+                  }
+                  """,
+              summary = "Example payload for unlinking a device"
+          )
+      )
+  )
   @DeleteMapping("/me/devices/unlink")
   public ResponseEntity<ApiResponse<Void>> unlinkDeviceFromCurrentUser(
       @Valid @RequestBody DeviceUnlinkRequest req) {
@@ -313,41 +350,52 @@ public class UserController {
         .body(ApiResponse.success(HttpStatus.OK, "Device unlinked successfully"));
   }
 
-  /*
-   * Update device information for the currently authenticated user.
-   */
   @Operation(
       summary = "Update device information for current user",
-      description = "Updates device information for the currently authenticated user.")
+      description = "Updates device information for the currently authenticated user."
+  )
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+      content = @Content(
+          examples = @ExampleObject(
+              name = "UserDeviceUpdateExample",
+              value = """
+                  {
+                    "friendlyName": "Front Garden",
+                    "locationLabel": "Greenhouse 1",
+                    "description": "Primary hydroponic unit for leafy greens"
+                  }
+                  """,
+              summary = "Example payload for updating a user's device details"
+          )
+      )
+  )
   @PatchMapping("/me/devices/{deviceId}")
   public ResponseEntity<ApiResponse<DeviceResponse>> updateDeviceForCurrentUser(
-      @PathVariable Long deviceId,
+      @Parameter(description = "Target device ID", example = "101")
+      @PathVariable @Positive Long deviceId,
       @Valid @RequestBody DeviceUpdateRequest req) {
     DeviceResponse updatedDevice = userService.updateDeviceForCurrentUser(deviceId, req);
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device updated successfully", updatedDevice));
   }
 
-  /*
-  * Persists UI user device display order for the currently authenticated user.
-   */
   @Operation(
       summary = "Update devices display order for current user",
-      description = "Persists UI user devices display order for the currently authenticated user.")
+      description = "Persists UI user devices display order for the currently authenticated user."
+  )
   @PutMapping("/me/devices/display-order")
   public ResponseEntity<ApiResponse<DeviceResponse>> updateDeviceDisplayOrderForCurrentUser(
-      @RequestParam List<Long> displayOrder) {
+      @Parameter(description = "List of device IDs in desired display order", example = "[102, 101, 103]")
+      @RequestParam @NotEmpty List<@Positive Long> displayOrder) {
     userService.persistDeviceOrderForCurrentUser(displayOrder);
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Devices display order updated successfully"));
   }
 
-  /*
-   * Retrieves all devices linked to the currently authenticated user.
-   */
   @Operation(
       summary = "Retrieve devices linked to current user",
-      description = "Retrieves all devices linked to the currently authenticated user.")
+      description = "Retrieves all devices linked to the currently authenticated user."
+  )
   @GetMapping("/me/devices")
   public ResponseEntity<ApiResponse<List<DeviceResponse>>> getDevicesForCurrentUser() {
     return ResponseEntity.status(HttpStatus.OK)
@@ -357,26 +405,41 @@ public class UserController {
 
   // ======= ADMIN-ONLY ENDPOINTS =======
 
-  /**
-   * Creates a new user account. Allows setting user roles.
-   */
   @Hidden
   @PreAuthorize("hasRole('ADMIN')")
-  @Operation(summary = "Register a new user (Admin only)",
-      description = "Creates a new user account. Allows setting user roles.")
+  @Operation(
+      summary = "Register a new user (Admin only)",
+      description = "Creates a new user account. Allows setting user roles."
+  )
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+      content = @Content(
+          examples = @ExampleObject(
+              name = "AdminUserRegisterExample",
+              value = """
+                  {
+                    "userDetails": {
+                      "email": "new_user@hydro.com",
+                      "username": "new_user",
+                      "fullName": "New User",
+                      "password": "secure_password"
+                    },
+                    "roles": [
+                      "ROLE_USER",
+                    ]
+                  }
+                  """,
+              summary = "Example payload for creating a user with custom roles"
+          )
+      )
+  )
   @PostMapping("/users/new")
   public ResponseEntity<ApiResponse<AuthResponse>> registerUsersAdmin(
       @Valid @RequestBody AdminUserRegisterRequest req) {
-
     return ResponseEntity.status(HttpStatus.CREATED)
-        .body(
-            ApiResponse.success(HttpStatus.CREATED, "User registered successfully",
-                userService.addUser(req.getUserDetails(), req.getRoles())));
+        .body(ApiResponse.success(HttpStatus.CREATED, "User registered successfully",
+            userService.addUser(req.getUserDetails(), req.getRoles())));
   }
 
-  /**
-   * Retrieves all user profiles.
-   */
   @Hidden
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Retrieve all user profiles (Admin only)")
@@ -388,35 +451,30 @@ public class UserController {
             userService.getAllUserProfiles(pageable)));
   }
 
-  /**
-   * Retrieves user profile by ID.
-   */
   @Hidden
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Retrieve user profile by ID (Admin only)")
   @GetMapping("/users/{userId}")
-  public ResponseEntity<ApiResponse<UserResponse>> getUserProfileById(@PathVariable Long userId) {
+  public ResponseEntity<ApiResponse<UserResponse>> getUserProfileById(
+      @Parameter(description = "Target user ID", example = "42")
+      @PathVariable @Positive Long userId) {
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "User profile retrieved successfully",
             userService.getUserProfileById(userId)));
   }
 
-  /**
-   * Deletes user by ID (soft delete)
-   */
   @Hidden
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Disable user by ID (Admin only)")
   @DeleteMapping("/users/{userId}")
-  public ResponseEntity<ApiResponse<Void>> deleteUserById(@PathVariable Long userId) {
+  public ResponseEntity<ApiResponse<Void>> deleteUserById(
+      @Parameter(description = "Target user ID", example = "42")
+      @PathVariable @Positive Long userId) {
     userService.deleteUserById(userId);
     return ResponseEntity.status(HttpStatus.NO_CONTENT)
         .body(ApiResponse.success(HttpStatus.NO_CONTENT, "User deleted successfully"));
   }
 
-  /**
-   * Generates a secure HTTP-only cookie for the refresh token
-   */
   private ResponseCookie generateRefreshTokenCookie(TokenResponse refreshToken, String path) {
     return ResponseCookie.from("refreshToken", refreshToken.value())
         .httpOnly(true)
@@ -427,25 +485,12 @@ public class UserController {
         .build();
   }
 
-  /**
-   * Enum to represent the client platform (Web or React Native)
-   */
   public enum ClientPlatform {
     WEB, REACT_NATIVE;
 
     public static ClientPlatform from(String header) {
       return "react-native".equalsIgnoreCase(header) ? REACT_NATIVE : WEB;
     }
-  }
-
-  /**
-   * Extracts a specific token type from the AuthResponse.
-   */
-  private TokenResponse extractToken(AuthResponse response, String type) {
-    return response.tokens().stream()
-        .filter(t -> t.type().equals(type))
-        .findFirst()
-        .orElseThrow(() -> new IllegalStateException("Missing token type: " + type));
   }
 
   private TokenResponse extractToken(List<TokenResponse> tokens, String type) {
@@ -455,4 +500,3 @@ public class UserController {
         .orElseThrow(() -> new IllegalStateException("Missing token type: " + type));
   }
 }
-

@@ -3,7 +3,6 @@ package dev.ivfrost.hydro_backend.devices.internal;
 import dev.ivfrost.hydro_backend.ApiResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceAuthRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
-import dev.ivfrost.hydro_backend.devices.DeviceOrderSaveRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
@@ -11,8 +10,14 @@ import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import java.util.List;
 import java.util.Map;
 import lombok.AllArgsConstructor;
@@ -22,7 +27,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,107 +41,13 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Devices Module", description = "API endpoints for device management")
 @AllArgsConstructor
 @RestController
+@Validated
 @RequestMapping("/v1")
 public class DeviceController {
 
   private final DeviceService deviceService;
 
-  @PreAuthorize("hasRole('ADMIN')")
-  @Operation(summary = "Link device to user by ID (Admin only)",
-      description = "Links a device to a specific user by their unique ID using the device's secret as ownership proof.")
-  @PostMapping("/users/{userId}/devices/link")
-  public ResponseEntity<ApiResponse<Void>> linkDeviceById(
-      @RequestBody @Valid DeviceLinkRequest linkDeviceRequest,
-      @PathVariable Long userId) {
-    deviceService.linkDevice(linkDeviceRequest, userId);
-    return ResponseEntity.status(HttpStatus.OK)
-        .body(ApiResponse.success(HttpStatus.OK, "Device linked to user successfully"));
-  }
-
-  @PreAuthorize("hasRole('ADMIN')")
-  @GetMapping("/users/{userId}/devices")
-  @Operation(summary = "Retrieve devices by user ID (Admin only)",
-      description = "Retrieves all devices linked to a specific user by their unique ID.")
-  public ResponseEntity<ApiResponse<List<DeviceResponse>>> getUserDevicesById(
-      @PathVariable Long userId) {
-    return ResponseEntity.status(HttpStatus.OK)
-        .body(ApiResponse.success(HttpStatus.OK, "User devices retrieved successfully",
-            deviceService.getDevicesByUserId(userId)));
-  }
-
-  @PreAuthorize("hasRole('ADMIN')")
-  @Operation(summary = "Get all provisioned devices (Admin only)",
-      description = "Retrieves all devices provisioned in the system.")
-  @GetMapping("/devices")
-  public ResponseEntity<ApiResponse<Page<DeviceResponse>>> getAllDevices(
-      @ParameterObject Pageable pageable) {
-    return ResponseEntity.status(HttpStatus.OK)
-        .body(ApiResponse.success(HttpStatus.OK, "All devices retrieved successfully",
-            deviceService.getAllDevices(pageable)));
-  }
-
-  @PreAuthorize("hasRole('ADMIN')")
-  @Operation(summary = "Provision new device (Admin only)", description = "Provisions a new device in the system.")
-  @PostMapping("/devices")
-  public ResponseEntity<ApiResponse<DeviceProvisionResponse>> provisionDevice(
-      @RequestBody @Valid DeviceProvisionRequest req) {
-    return ResponseEntity.status(HttpStatus.CREATED)
-        .body(ApiResponse.success(HttpStatus.CREATED, "Device provisioned successfully",
-            deviceService.provisionDevice(req)));
-  }
-
-  @Hidden
-  @PreAuthorize("hasRole('ADMIN')")
-  @Operation(summary = "Update device by ID (Admin only)",
-      description = "Updates the details of a device by its unique ID.")
-  @PutMapping("/devices/{deviceId}")
-  public ResponseEntity<ApiResponse<DeviceResponse>> updateDeviceDetails
-      (@RequestBody @Valid DeviceUpdateRequest req, @PathVariable Long deviceId) {
-    return ResponseEntity.status(HttpStatus.OK)
-        .body(ApiResponse.success(HttpStatus.OK, "Device updated successfully",
-            deviceService.updateDeviceDetailsAdmin(deviceId, req)));
-  }
-
-  @Hidden
-  @PreAuthorize("hasRole('ADMIN')")
-  @Operation(summary = "Delete device by ID (Admin only)",
-      description = "Deletes a device from the system by its unique ID.")
-  @DeleteMapping("/devices/{deviceId}")
-  public ResponseEntity<ApiResponse<Void>> deleteDeviceById(@PathVariable Long deviceId) {
-    deviceService.deleteDeviceById(deviceId);
-    return ResponseEntity.status(HttpStatus.OK)
-        .body(ApiResponse.success(HttpStatus.OK, "Device deleted successfully"));
-  }
-
-  @PreAuthorize("hasRole('ADMIN')")
-  @Operation(summary = "Get device secret by key (Admin only)",
-      description = "Retrieves the decrypted device secret for a specific device by its key.")
-  @GetMapping("/devices/{deviceKey}/secret")
-  public ResponseEntity<ApiResponse<Map<String, String>>> getDeviceSecret(
-      @PathVariable String deviceKey) {
-    String secret = deviceService.getSecretByDeviceKey(deviceKey);
-    Map<String, String> response = Map.of(
-        "deviceKey", deviceKey,
-        "secret", secret != null ? secret : ""
-    );
-    return ResponseEntity.status(HttpStatus.OK)
-        .body(ApiResponse.success(HttpStatus.OK, "Device secret retrieved successfully", response));
-  }
-
-  @PreAuthorize("hasRole('ADMIN')")
-  @Operation(summary = "Regenerate device secret (Admin only)",
-      description = "Generates a new secret for a device, replacing the old one.")
-  @PostMapping("/devices/{deviceId}/secret/regenerate")
-  public ResponseEntity<ApiResponse<Map<String, String>>> regenerateDeviceSecret(
-      @PathVariable Long deviceId) {
-    String newSecret = deviceService.regenerateDeviceSecret(deviceId);
-    Map<String, String> response = Map.of(
-        "deviceId", deviceId.toString(),
-        "newSecret", newSecret
-    );
-    return ResponseEntity.status(HttpStatus.OK).body(
-        ApiResponse.success(HttpStatus.OK, "Device secret regenerated successfully", response));
-  }
+  // ======= INTERNAL & DEVICE ENDPOINTS =======
 
   /**
    * Webhook for MQTT broker authentication.
@@ -145,7 +56,8 @@ public class DeviceController {
    */
   @Hidden
   @PostMapping("/internal/mqtt/auth")
-  public ResponseEntity<Map<String, Object>> verifyMqttConnection(@RequestBody MqttAuthRequest req) {
+  public ResponseEntity<Map<String, Object>> verifyMqttConnection(
+      @Valid @RequestBody MqttAuthRequest req) {
     try {
       ResponseEntity<Map<String, Object>> allowedResponse = ResponseEntity.ok(Map.of("result", "allow"));
       if ("hydro-api-user".equals(req.username())) {
@@ -167,7 +79,8 @@ public class DeviceController {
    */
   @Hidden
   @PostMapping("/internal/mqtt/acl")
-  public ResponseEntity<Map<String, Object>> verifyMqttAcl(@RequestBody MqttAclRequest req) {
+  public ResponseEntity<Map<String, Object>> verifyMqttAcl(
+      @Valid @RequestBody MqttAclRequest req) {
     // Intercept requests from the API and allow it to bypass ACL checks
     if ("hydro-api-user".equals(req.username())) {
       return ResponseEntity.ok(Map.of("result", "allow"));
@@ -183,28 +96,231 @@ public class DeviceController {
     }
   }
 
+  @Operation(
+      summary = "Authenticate device",
+      description = "Authenticates a hardware device using its credentials and returns an MQTT JWT token."
+  )
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+      content = @Content(
+          examples = @ExampleObject(
+              name = "DeviceAuthExample",
+              value = """
+                  {
+                    "deviceKey": "HYDRO-A8JD3F",
+                    "deviceSecret": "3c375b806be40992a5c199176c498aec"
+                  }
+                  """,
+              summary = "Example of device authentication payload"
+          )
+      )
+  )
   @PostMapping("/internal/devices/auth")
-    public ResponseEntity<ApiResponse<TokenResponse>> authenticateDevice(@RequestBody DeviceAuthRequest req) {
-      return ResponseEntity.status(HttpStatus.OK)
+  public ResponseEntity<ApiResponse<TokenResponse>> authenticateDevice(
+      @Valid @RequestBody DeviceAuthRequest req) {
+    return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device MQTT auth token retrieved successfully",
             deviceService.authenticateDevice(req)
-            ));
-    }
+        ));
+  }
 
   /**
    * Device provisioning endpoint.
    * Expects a Bearer token in the Authorization header for authentication.
    */
+  @Operation(
+      summary = "Internal device provisioning",
+      description = "Provisions a device using an internal Bearer provisioning token."
+  )
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+      content = @Content(
+          examples = @ExampleObject(
+              name = "InternalDeviceProvisionExample",
+              value = """
+                  {
+                    "serialNumber": "HYDRO-20AX89",
+                    "macAddress": "00:1A:2C:3D:4E:5F",
+                    "firmwareVersion": "v2.1.0"
+                  }
+                  """,
+              summary = "Example of internal device provisioning payload"
+          )
+      )
+  )
   @PostMapping("/internal/devices/provision")
   public ResponseEntity<ApiResponse<DeviceProvisionResponse>> provisionDeviceInternal(
-      @RequestHeader ("Authorization") String authorizationHeader,
-      @RequestBody @Valid DeviceProvisionRequest req) {
+      @Parameter(description = "Internal bearer provisioning token", example = "Bearer prov_tok_123456789")
+      @RequestHeader("Authorization") @NotBlank String authorizationHeader,
+      @Valid @RequestBody DeviceProvisionRequest req) {
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.success(HttpStatus.CREATED, "Device provisioned successfully",
             deviceService.provisionDevice(req, authorizationHeader)));
   }
 
-  public record MqttAuthRequest(String username, String password, String clientid) {}
-  public record MqttAclRequest(String username, String clientid, String topic, int action, String password) {}
-}
+  // ======= ADMIN-ONLY ENDPOINTS =======
 
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(
+      summary = "Link device to user by ID (Admin only)",
+      description = "Links a device to a specific user by their unique ID using the device's secret as ownership proof."
+  )
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+      content = @Content(
+          examples = @ExampleObject(
+              name = "DeviceLinkExample",
+              value = """
+                  {
+                    "secret": "e5a0b6840dd5bef62dc8bd1b8431c998"
+                  }
+                  """,
+              summary = "Example of linking a device to a user using secret proof"
+          )
+      )
+  )
+  @PostMapping("/users/{userId}/devices/link")
+  public ResponseEntity<ApiResponse<Void>> linkDeviceById(
+      @Valid @RequestBody DeviceLinkRequest linkDeviceRequest,
+      @Parameter(description = "Target user ID", example = "42")
+      @PathVariable @Positive Long userId) {
+    deviceService.linkDevice(linkDeviceRequest, userId);
+    return ResponseEntity.status(HttpStatus.OK)
+        .body(ApiResponse.success(HttpStatus.OK, "Device linked to user successfully"));
+  }
+
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(
+      summary = "Retrieve devices by user ID (Admin only)",
+      description = "Retrieves all devices linked to a specific user by their unique ID."
+  )
+  @GetMapping("/users/{userId}/devices")
+  public ResponseEntity<ApiResponse<List<DeviceResponse>>> getUserDevicesById(
+      @Parameter(description = "Target user ID", example = "42")
+      @PathVariable @Positive Long userId) {
+    return ResponseEntity.status(HttpStatus.OK)
+        .body(ApiResponse.success(HttpStatus.OK, "User devices retrieved successfully",
+            deviceService.getDevicesByUserId(userId)));
+  }
+
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(
+      summary = "Get all provisioned devices (Admin only)",
+      description = "Retrieves all devices provisioned in the system."
+  )
+  @GetMapping("/devices")
+  public ResponseEntity<ApiResponse<Page<DeviceResponse>>> getAllDevices(
+      @ParameterObject Pageable pageable) {
+    return ResponseEntity.status(HttpStatus.OK)
+        .body(ApiResponse.success(HttpStatus.OK, "All devices retrieved successfully",
+            deviceService.getAllDevices(pageable)));
+  }
+
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(
+      summary = "Provision new device (Admin only)",
+      description = "Provisions a new device in the system."
+  )
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+      content = @Content(
+          examples = @ExampleObject(
+              name = "AdminDeviceProvisionExample",
+              value = """
+                  {
+                    "serialNumber": "HYDRO-26AX89",
+                    "macAddress": "00:1A:2C:3D:4E:5F",
+                    "firmwareVersion": "v2.1.0"
+                  }
+                  """,
+              summary = "Example of provisioning a new device via Admin API"
+          )
+      )
+  )
+  @PostMapping("/devices")
+  public ResponseEntity<ApiResponse<DeviceProvisionResponse>> provisionDevice(
+      @Valid @RequestBody DeviceProvisionRequest req) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(ApiResponse.success(HttpStatus.CREATED, "Device provisioned successfully",
+            deviceService.provisionDevice(req)));
+  }
+
+  @Hidden
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(
+      summary = "Update device by ID (Admin only)",
+      description = "Updates the details of a device by its unique ID."
+  )
+  @PutMapping("/devices/{deviceId}")
+  public ResponseEntity<ApiResponse<DeviceResponse>> updateDeviceDetails(
+      @Valid @RequestBody DeviceUpdateRequest req,
+      @Parameter(description = "Target device ID", example = "101")
+      @PathVariable @Positive Long deviceId) {
+    return ResponseEntity.status(HttpStatus.OK)
+        .body(ApiResponse.success(HttpStatus.OK, "Device updated successfully",
+            deviceService.updateDeviceDetailsAdmin(deviceId, req)));
+  }
+
+  @Hidden
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(
+      summary = "Delete device by ID (Admin only)",
+      description = "Deletes a device from the system by its unique ID."
+  )
+  @DeleteMapping("/devices/{deviceId}")
+  public ResponseEntity<ApiResponse<Void>> deleteDeviceById(
+      @Parameter(description = "Target device ID", example = "101")
+      @PathVariable @Positive Long deviceId) {
+    deviceService.deleteDeviceById(deviceId);
+    return ResponseEntity.status(HttpStatus.OK)
+        .body(ApiResponse.success(HttpStatus.OK, "Device deleted successfully"));
+  }
+
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(
+      summary = "Get device secret by key (Admin only)",
+      description = "Retrieves the decrypted device secret for a specific device by its key."
+  )
+  @GetMapping("/devices/{deviceKey}/secret")
+  public ResponseEntity<ApiResponse<Map<String, String>>> getDeviceSecret(
+      @Parameter(description = "Unique device key", example = "HYDRO-AL343K")
+      @PathVariable @NotBlank String deviceKey) {
+    String secret = deviceService.getSecretByDeviceKey(deviceKey);
+    Map<String, String> response = Map.of(
+        "deviceKey", deviceKey,
+        "secret", secret != null ? secret : ""
+    );
+    return ResponseEntity.status(HttpStatus.OK)
+        .body(ApiResponse.success(HttpStatus.OK, "Device secret retrieved successfully", response));
+  }
+
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(
+      summary = "Regenerate device secret (Admin only)",
+      description = "Generates a new secret for a device, replacing the old one."
+  )
+  @PostMapping("/devices/{deviceId}/secret/regenerate")
+  public ResponseEntity<ApiResponse<Map<String, String>>> regenerateDeviceSecret(
+      @Parameter(description = "Target device ID", example = "101")
+      @PathVariable @Positive Long deviceId) {
+    String newSecret = deviceService.regenerateDeviceSecret(deviceId);
+    Map<String, String> response = Map.of(
+        "deviceId", deviceId.toString(),
+        "newSecret", newSecret
+    );
+    return ResponseEntity.status(HttpStatus.OK)
+        .body(ApiResponse.success(HttpStatus.OK, "Device secret regenerated successfully", response));
+  }
+
+  // ======= REQUEST PAYLOAD RECORDS =======
+
+  public record MqttAuthRequest(
+      @NotBlank String username,
+      @NotBlank String password,
+      @NotBlank String clientid
+  ) {}
+
+  public record MqttAclRequest(
+      @NotBlank String username,
+      @NotBlank String clientid,
+      @NotBlank String topic,
+      @PositiveOrZero int action,
+      @NotBlank String password
+  ) {}
+}

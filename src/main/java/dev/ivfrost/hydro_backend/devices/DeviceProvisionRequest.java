@@ -1,7 +1,7 @@
 package dev.ivfrost.hydro_backend.devices;
 
+import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.Size;
-import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.RuntimeHintsRegistrar;

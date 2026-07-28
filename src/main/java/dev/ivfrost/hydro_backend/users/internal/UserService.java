@@ -42,6 +42,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
@@ -282,7 +283,7 @@ public class UserService {
    * @throws UserDisabledException                      if the user is disabled
    */
   @Transactional
-  UserResponse updateCurrentUser(UserUpdateRequest req, MultipartFile profilePicture) {
+  UserResponse updateCurrentUser(UserUpdateRequest req) {
     Long userId = getCurrentUser().getId();
     User user = userRepository.findById(userId)
         .orElseThrow(() -> new AuthenticationCredentialsNotFoundException(
@@ -291,12 +292,16 @@ public class UserService {
     if (!user.isEnabled()) {
       throw new UserDisabledException(userId);
     }
-    boolean isChangingPassword = req.password() != null && !req.password().isBlank();
-    boolean isChangingEmail = req.email() != null && !req.email().isBlank() && !req.email().trim().toLowerCase().equals(user.getEmail());
-    boolean isChangingUsername = req.username() != null && !req.username().isBlank() && !req.username().equals(user.getUsername());
+    // Normalize inputs
+    String cleanEmail = StringUtils.hasText(req.email()) ? req.email().trim().toLowerCase() : null;
+    boolean isCurrentPasswordProvided = StringUtils.hasText(req.currentPassword());
+    boolean isChangingPassword = StringUtils.hasText(req.password());
+    boolean isChangingEmail = cleanEmail != null && !cleanEmail.equals(user.getEmail());
+    boolean isChangingUsername = StringUtils.hasText(req.username()) && !req.username().equals(user.getUsername());
 
+    // Validate email and password changes
     if (isChangingPassword || isChangingEmail) {
-      if (req.currentPassword() == null || req.currentPassword().isBlank()) {
+      if (!isCurrentPasswordProvided) {
         throw new IllegalArgumentException("Current password must be provided to update credentials.");
       }
 
@@ -305,55 +310,36 @@ public class UserService {
         throw new BadCredentialsException("Invalid credentials");
       }
 
-      // If changing password, encode and update it
       if (isChangingPassword) {
         user.setPassword(passwordEncoder.encode(req.password()));
       }
 
-      // If changing email, check if the new email is already in use and update it
       if (isChangingEmail) {
-        String cleanEmail = req.email().trim().toLowerCase();
-        boolean emailExists = userRepository.existsByEmail(cleanEmail);
-        if (emailExists) {
+        if (userRepository.existsByEmail(cleanEmail)) {
           throw new IllegalArgumentException("Email address is already in use by another account.");
         }
         user.setEmail(cleanEmail);
       }
     }
 
-    // If changing username, check if the new username is already in use and update it
+    // If changing username, ensure the new username is not already in use and update it
     if (isChangingUsername) {
       boolean isUsernameTaken = userRepository.existsByUsername(req.username());
-      if (isUsernameTaken && !req.username().equals(user.getUsername())) {
+      if (isUsernameTaken) {
         throw new UsernameTakenException(req.username());
       }
       user.setUsername(req.username());
     }
-    if (req.fullName() != null && !req.fullName().isBlank()) {
-      user.setFullName(req.fullName());
-    }
-    if (req.phoneNumber() != null) {
-      user.setPhoneNumber(req.phoneNumber());
-    }
-    if (req.address() != null) {
-      user.setAddress(req.address());
-    }
 
-    // TODO: Reenable profile picture upload once blob storage is set up
-    //    if (profilePicture != null && !profilePicture.isEmpty()) {
-    //      String key = null;
-    //      try {
-    //        key = blobStorageService.save(profilePicture, userId);
-    //      } catch (IOException e) {
-    //        throw new RuntimeException(e);
-    //      }
-    //      user.setProfilePictureUrl(key);
-    //    }
+    // Update remaining optional profile fields
+    if (req.fullName() != null) user.setFullName(req.fullName());
+    if (req.phoneNumber() != null) user.setPhoneNumber(req.phoneNumber());
+    if (req.address() != null) user.setAddress(req.address());
+    if (req.imageUrl() != null) user.setImageUrl(req.imageUrl());
+    if (req.settings() != null) user.setSettings(req.settings());
 
-    if (req.settings() != null) {
-      user.setSettings(req.settings());
-    }
-    userRepository.save(user);
+    // Hibernate dirty checking handles updates
+
     return convertUserToResponse(user);
   }
 
@@ -498,7 +484,7 @@ public class UserService {
 
     return new UserResponse(
         user.getId(), user.getUsername(), user.getFullName(), user.getEmail(),
-        user.getProfilePictureUrl(),
+        user.getImageUrl(),
         user.getPhoneNumber(), user.getAddress(), user.getCreatedAt(), user.getUpdatedAt(),
         roleList, user.getSettings()
     );

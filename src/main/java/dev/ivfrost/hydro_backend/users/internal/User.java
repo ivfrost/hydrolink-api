@@ -1,5 +1,6 @@
 package dev.ivfrost.hydro_backend.users.internal;
 
+import jakarta.annotation.Nullable;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -27,10 +28,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.Fetch;
-import org.hibernate.annotations.FetchMode;
 import org.hibernate.annotations.UpdateTimestamp;
-import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.RuntimeHintsRegistrar;
@@ -68,9 +66,6 @@ public class User implements Serializable {
   @Column(unique = true, nullable = false)
   private String email;
 
-  @Column(name = "profile_pic")
-  @Size(max = 255)
-  private String profilePictureUrl;
 
   @Size(max = 20)
   @Column(name = "phone_number")
@@ -94,6 +89,9 @@ public class User implements Serializable {
   @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
   @Builder.Default
   private List<UserRole> roles = new ArrayList<>();
+
+  @Column(name = "image_url")
+  private String imageUrl;
 
   @Column(name = "settings", columnDefinition = "text")
   private String settings;

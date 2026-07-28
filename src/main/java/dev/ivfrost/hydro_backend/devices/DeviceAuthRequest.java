@@ -1,12 +1,13 @@
 package dev.ivfrost.hydro_backend.devices;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 public record DeviceAuthRequest(
-    @NotNull(message = "Device key is required")
+    @NotBlank(message = "Device key is required")
     String key,
 
+    @Size(max = 255)
     @NotBlank(message = "Device secret is required")
     String secret
 ) {
