@@ -1,6 +1,7 @@
 package dev.ivfrost.hydro_backend.users.internal;
 
 import com.auth0.jwt.interfaces.Claim;
+import dev.ivfrost.hydro_backend.devices.DeviceLinkProvider;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUnlinkRequest;
@@ -16,6 +17,7 @@ import dev.ivfrost.hydro_backend.users.EmailTakenException;
 import dev.ivfrost.hydro_backend.users.UserAuthRequest;
 import dev.ivfrost.hydro_backend.devices.UserDeviceProvider;
 import dev.ivfrost.hydro_backend.users.UserDisabledException;
+import dev.ivfrost.hydro_backend.users.UserMapper;
 import dev.ivfrost.hydro_backend.users.UserMqttResponse;
 import dev.ivfrost.hydro_backend.users.UserRecoveryRequest;
 import dev.ivfrost.hydro_backend.users.UserRegisterRequest;
@@ -30,10 +32,8 @@ import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -43,24 +43,20 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @AllArgsConstructor()
 @Service
 public class UserService {
 
-  private static final long ONLINE_THRESHOLD_MS = 300_000; // 5 minutes
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
   private final JWTUtil jwtUtil;
   private final DeviceTopicProvider deviceTopicProvider;
   private final UserTokenProvider userTokenProvider;
-  private final RedisTemplate<Object, Object> redisTemplate;
-  private final ApplicationEventPublisher events;
   private final UserDeviceProvider userDeviceProvider;
-  private final dev.ivfrost.hydro_backend.devices.DeviceLinkProvider deviceLinkProvider;
-
+  private final DeviceLinkProvider deviceLinkProvider;
+  private final UserMapper userMapper;
 
   /**
    * Authenticates a user by email and password.
@@ -74,13 +70,7 @@ public class UserService {
   AuthResponse authenticateUser(UserAuthRequest req) {
     String email = req.email();
     String password = req.password();
-    Optional<User> userOpt = userRepository.findByEmail(email);
-    if (userOpt.isEmpty()) {
-      log.debug("User not found with email: {}", email);
-      throw new AuthenticationCredentialsNotFoundException(
-          "Invalid credentials");
-    }
-    User user = userOpt.get();
+    User user = requireUserByEmail(email);
     log.debug("Authenticating user with email: {}", email);
     if (!user.isEnabled()) {
       throw new UserDisabledException(email);
@@ -92,10 +82,10 @@ public class UserService {
     List<TokenResponse> tokens = userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
         user.getUsername(),
         user.getEmail(),
-        user.getRoles().stream().map(role -> role.getRole().toString()).toList(),
+        userMapper.mapRoles(user.getRoles()),
         user.getId()
     ));
-    return new AuthResponse(convertUserToResponse(user), tokens);
+    return new AuthResponse(userMapper.userToUserResponse(user), tokens);
   }
 
   /**
@@ -117,7 +107,8 @@ public class UserService {
     if (userRepository.findByEmail(req.email()).isPresent()) {
       throw new EmailTakenException(req.email());
     }
-    User user = convertRequestToUser(req);
+    User user = userMapper.userRegisterRequestToUser(req);
+    user.setPassword(passwordEncoder.encode(req.password()));
     // MapsId guarantees that the userId in UserRole is populated with the correct value
     user.getRoles().addAll(
         roles.stream()
@@ -130,11 +121,11 @@ public class UserService {
     List<TokenResponse> accessRefreshTokens = userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
         savedUser.getUsername(),
         savedUser.getEmail(),
-        savedUser.getRoles().stream().map(role -> role.getRole().toString()).toList(),
+        userMapper.mapRoles(user.getRoles()),
         savedUser.getId()
     ));
     List<TokenResponse> allTokens = Stream.concat(recoveryTokens.stream(), accessRefreshTokens.stream()).toList();
-    return new AuthResponse(convertUserToResponse(savedUser), allTokens);
+    return new AuthResponse(userMapper.userToUserResponse(savedUser), allTokens);
   }
 
   /**
@@ -163,13 +154,9 @@ public class UserService {
    * @throws UserDisabledException                      if the user is disabled
    */
   private User getCurrentUser() {
-    Long userId = getCurrentUserId();
-    User user = userRepository.findById(userId).orElseThrow(
-        () -> new AuthenticationCredentialsNotFoundException(
-            "User with ID " + userId + " not found.")
-    );
+    User user = requireUserById(getCurrentUserId());
     if (!user.isEnabled()) {
-      throw new UserDisabledException(userId);
+      throw new UserDisabledException(user.getId());
     }
     return user;
   }
@@ -180,7 +167,7 @@ public class UserService {
    * @return {@link UserResponse} containing user profile information
    */
   UserResponse getCurrentUserProfile() {
-    return convertUserToResponse(getCurrentUser());
+    return userMapper.userToUserResponse(getCurrentUser());
   }
 
   /**
@@ -191,9 +178,7 @@ public class UserService {
    * @throws AuthenticationCredentialsNotFoundException if the user is not found
    */
   private User getUserById(Long userId) {
-    return userRepository.findById(userId)
-        .orElseThrow(() -> new AuthenticationCredentialsNotFoundException(
-            "User with ID " + userId + " not found."));
+    return requireUserById(userId);
   }
 
   /**
@@ -203,7 +188,7 @@ public class UserService {
    * @return {@link UserResponse} containing user profile information
    */
   UserResponse getUserProfileById(Long userId) {
-    return convertUserToResponse(getUserById(userId));
+    return userMapper.userToUserResponse(getUserById(userId));
   }
 
   /**
@@ -217,7 +202,7 @@ public class UserService {
       key = "'allUsers:' + #pageable.pageNumber + ':' + #pageable.pageSize + ':' + #pageable.sort"
   )
   public Page<UserResponse> getAllUserProfiles(Pageable pageable) {
-    return convertUsersToResponses(userRepository.findAll(pageable));
+    return userRepository.findAll(pageable).map(userMapper::userToUserResponse);
   }
 
   /**
@@ -227,10 +212,8 @@ public class UserService {
    * @throws UserDisabledException                      if the user is already disabled
    * @throws AuthenticationCredentialsNotFoundException if the user is not found
    */
-  void deleteUserById(Long userId) {
-    User user = userRepository.findById(userId)
-        .orElseThrow(() -> new AuthenticationCredentialsNotFoundException(
-            "User with ID " + userId + " not found."));
+  void disableUserById(Long userId) {
+    User user = requireUserById(userId);
     if (!user.isEnabled()) {
       throw new UserDisabledException(userId);
     }
@@ -242,8 +225,8 @@ public class UserService {
    * Disables the authenticated user.
    *
    */
-  void deleteCurrentUser() {
-    deleteUserById(getCurrentUserId());
+  void disableCurrentUser() {
+    disableUserById(getCurrentUserId());
   }
 
   /**
@@ -259,9 +242,7 @@ public class UserService {
    */
   @Transactional
   void resetPassword(UserRecoveryRequest req) {
-    User user = userRepository.findByEmail(req.email()).orElseThrow(
-        () -> new AuthenticationCredentialsNotFoundException(
-            "User with email " + req.email() + " not found."));
+    User user = requireUserByEmail(req.email());
     if (!user.isEnabled()) {
       throw new UserDisabledException(user.getId());
     }
@@ -284,14 +265,8 @@ public class UserService {
    */
   @Transactional
   UserResponse updateCurrentUser(UserUpdateRequest req) {
-    Long userId = getCurrentUser().getId();
-    User user = userRepository.findById(userId)
-        .orElseThrow(() -> new AuthenticationCredentialsNotFoundException(
-            "User with ID " + userId + " not found."));
+    User user = getCurrentUser();
 
-    if (!user.isEnabled()) {
-      throw new UserDisabledException(userId);
-    }
     // Normalize inputs
     String cleanEmail = StringUtils.hasText(req.email()) ? req.email().trim().toLowerCase() : null;
     boolean isCurrentPasswordProvided = StringUtils.hasText(req.currentPassword());
@@ -332,15 +307,10 @@ public class UserService {
     }
 
     // Update remaining optional profile fields
-    if (req.fullName() != null) user.setFullName(req.fullName());
-    if (req.phoneNumber() != null) user.setPhoneNumber(req.phoneNumber());
-    if (req.address() != null) user.setAddress(req.address());
-    if (req.imageUrl() != null) user.setImageUrl(req.imageUrl());
-    if (req.settings() != null) user.setSettings(req.settings());
+    userMapper.updateUserFromRequest(req, user);
 
     // Hibernate dirty checking handles updates
-
-    return convertUserToResponse(user);
+    return userMapper.userToUserResponse(user);
   }
 
   /**
@@ -360,7 +330,7 @@ public class UserService {
     return userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
         user.getUsername(),
         user.getEmail(),
-        user.getRoles().stream().map(role -> role.getRole().toString()).toList(),
+        userMapper.mapRoles(user.getRoles()),
         user.getId()
     ));
   }
@@ -401,7 +371,7 @@ public class UserService {
    */
   DeviceResponse updateDeviceForCurrentUser(long deviceId, DeviceUpdateRequest req) {
     User user = getCurrentUser();
-    boolean isAdmin = user.getRoles().contains(UserRole.Role.ADMIN);
+    boolean isAdmin = userMapper.mapRoles(user.getRoles()).contains(UserRole.Role.ADMIN.toString());
     return userDeviceProvider.updateUserDevice(deviceId, req, user.getId(), isAdmin);
   }
 
@@ -419,6 +389,9 @@ public class UserService {
     return userDeviceProvider.getUserDevices(getCurrentUserId());
   }
 
+  /*
+   * Validates that the provided username and/or email are not already taken by another user.
+   */
   boolean validateUsernameEmail(String username, String email) {
     if (username != null && !username.isBlank()) {
       return userRepository.findByUsername(username).isEmpty();
@@ -443,6 +416,38 @@ public class UserService {
         && !(auth instanceof AnonymousAuthenticationToken);
   }
 
+  /**
+   * Retrieves a user by ID, throwing an exception if not found.
+   *
+   * @param userId the user ID
+   * @return {@link User} entity
+   * @throws AuthenticationCredentialsNotFoundException if the user is not found
+   */
+  private User requireUserById(Long userId) {
+    return userRepository.findById(userId)
+        .orElseThrow(() -> new AuthenticationCredentialsNotFoundException(
+            "User with ID " + userId + " not found."));
+  }
+
+  /**
+   * Retrieves a user by email, throwing an exception if not found.
+   *
+   * @param email the user email
+   * @return {@link User} entity
+   * @throws AuthenticationCredentialsNotFoundException if the user is not found
+   */
+  private User requireUserByEmail(String email) {
+    return userRepository.findByEmail(email)
+        .orElseThrow(() -> new AuthenticationCredentialsNotFoundException(
+            "User with email " + email + " not found."));
+  }
+
+  /**
+   * Retrieves the ID of the currently authenticated user.
+   *
+   * @return the user ID
+   * @throws AuthenticationCredentialsNotFoundException if no authenticated user is found
+   */
   public Long getCurrentUserId() {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
     if (authentication == null || !authentication.isAuthenticated()
@@ -450,53 +455,5 @@ public class UserService {
       throw new AuthenticationCredentialsNotFoundException("No authenticated user found.");
     }
     return Long.parseLong(authentication.getName());
-  }
-
-  /**
-   * Converts a UserRegisterRequest DTO to a User entity.
-   *
-   * @param req the user registration request DTO
-   * @return the user entity
-   */
-  public User convertRequestToUser(UserRegisterRequest req) {
-    String encodedPassword = passwordEncoder.encode(req.password());
-    User user = new User();
-    user.setUsername(req.username());
-    user.setPassword(encodedPassword);
-    user.setEmail(req.email());
-    user.setFullName(req.fullName());
-    return user;
-  }
-
-  /**
-   * Converts a User entity to a UserResponse DTO.
-   *
-   * @param user the user entity
-   * @return the user response DTO
-   */
-  public UserResponse convertUserToResponse(User user) {
-    if (user == null) {
-      return null;
-    }
-    List<String> roleList = user.getRoles().stream()
-        .map(role -> role.getRole().toString())
-        .toList();
-
-    return new UserResponse(
-        user.getId(), user.getUsername(), user.getFullName(), user.getEmail(),
-        user.getImageUrl(),
-        user.getPhoneNumber(), user.getAddress(), user.getCreatedAt(), user.getUpdatedAt(),
-        roleList, user.getSettings()
-    );
-  }
-
-  /**
-   * Converts a list of User entities to a list of UserResponse DTOs.
-   *
-   * @param users the list of user entities
-   * @return the list of user response DTOs
-   */
-  public Page<UserResponse> convertUsersToResponses(Page<User> users) {
-    return users.map(this::convertUserToResponse);
   }
 }

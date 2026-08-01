@@ -237,7 +237,7 @@ public class UserController {
   )
   @DeleteMapping("/me")
   public ResponseEntity<ApiResponse<Void>> deleteCurrentUser() {
-    userService.deleteCurrentUser();
+    userService.disableCurrentUser();
     return ResponseEntity.status(HttpStatus.NO_CONTENT)
         .body(ApiResponse.success(HttpStatus.NO_CONTENT, "User deleted successfully"));
   }
@@ -470,7 +470,7 @@ public class UserController {
   public ResponseEntity<ApiResponse<Void>> deleteUserById(
       @Parameter(description = "Target user ID", example = "42")
       @PathVariable @Positive Long userId) {
-    userService.deleteUserById(userId);
+    userService.disableUserById(userId);
     return ResponseEntity.status(HttpStatus.NO_CONTENT)
         .body(ApiResponse.success(HttpStatus.NO_CONTENT, "User deleted successfully"));
   }
