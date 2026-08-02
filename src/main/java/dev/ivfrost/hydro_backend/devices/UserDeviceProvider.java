@@ -6,6 +6,7 @@ public interface UserDeviceProvider {
 
   List<DeviceResponse> getUserDevices(Long userId);
 
-  DeviceResponse updateUserDevice(long deviceId, DeviceUpdateRequest request, long reqUserId, boolean isAdmin);
+  DeviceResponse updateUserDevice(long deviceId, DeviceUpdateRequest request, long reqUserId);
+  DeviceResponse updateUserDeviceAdmin(long deviceId, AdminDeviceUpdateRequest request, long reqUserId);
   void persistDeviceOrder(long reqUserId, List<Long> deviceIds);
 }

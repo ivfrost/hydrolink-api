@@ -1,10 +1,9 @@
 package dev.ivfrost.hydro_backend.devices;
 
-import jakarta.validation.constraints.Null;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
-public record DeviceUpdateRequest(
+public record AdminDeviceUpdateRequest(
     @Size(max = 40)
     String friendlyName,
     @Size(max = 40)
@@ -19,7 +18,6 @@ public record DeviceUpdateRequest(
     String description,
     @Size(max = 255)
     String imageUrl,
-    @Null // controlled by link/unlink
     Long userId,
     @Positive Long displayOrder
 ) {

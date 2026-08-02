@@ -1,14 +1,13 @@
 package dev.ivfrost.hydro_backend.devices.internal;
 
 import dev.ivfrost.hydro_backend.ApiResponse;
+import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceAuthRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
-import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
-import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -54,7 +53,6 @@ public class DeviceController {
    * This endpoint is called by the MQTT broker to verify the validity of the MQTT token
    * issued to the client.
    */
-  @Hidden
   @PostMapping("/internal/mqtt/auth")
   public ResponseEntity<Map<String, Object>> verifyMqttConnection(
       @Valid @RequestBody MqttAuthRequest req) {
@@ -77,7 +75,6 @@ public class DeviceController {
    * The MQTT token contains the allowed topics for the client, and this endpoint checks
    * whether the requested topic and action (pub/sub) is allowed by the token's claims.
    */
-  @Hidden
   @PostMapping("/internal/mqtt/acl")
   public ResponseEntity<Map<String, Object>> verifyMqttAcl(
       @Valid @RequestBody MqttAclRequest req) {
@@ -241,7 +238,6 @@ public class DeviceController {
             deviceService.provisionDevice(req)));
   }
 
-  @Hidden
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(
       summary = "Update device by ID (Admin only)",
@@ -249,7 +245,7 @@ public class DeviceController {
   )
   @PutMapping("/devices/{deviceId}")
   public ResponseEntity<ApiResponse<DeviceResponse>> updateDeviceDetails(
-      @Valid @RequestBody DeviceUpdateRequest req,
+      @Valid @RequestBody AdminDeviceUpdateRequest req,
       @Parameter(description = "Target device ID", example = "101")
       @PathVariable @Positive Long deviceId) {
     return ResponseEntity.status(HttpStatus.OK)
@@ -257,7 +253,6 @@ public class DeviceController {
             deviceService.updateDeviceDetailsAdmin(deviceId, req)));
   }
 
-  @Hidden
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(
       summary = "Delete device by ID (Admin only)",

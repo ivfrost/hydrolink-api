@@ -1,10 +1,12 @@
 package dev.ivfrost.hydro_backend.devices.internal;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceAuthRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceFetchException;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkException;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
+import dev.ivfrost.hydro_backend.devices.DeviceMapper;
 import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
@@ -15,10 +17,8 @@ import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DuplicateMacAddressException;
 import dev.ivfrost.hydro_backend.tokens.DeviceTokenProvider;
 import dev.ivfrost.hydro_backend.tokens.EncryptionUtil;
-import dev.ivfrost.hydro_backend.tokens.JWTUtil;
 import dev.ivfrost.hydro_backend.tokens.MqttTokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -34,8 +34,6 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,10 +47,9 @@ public class DeviceService {
   private final DeviceRepository deviceRepository;
   private final DeviceCacheService deviceCacheService;
   private final DeviceTokenProvider deviceTokenProvider;
-  private final RedisTemplate<String, String> redisTemplate;
-  private final JWTUtil jWTUtil;
   private final EncryptionUtil encryptionUtil;
   private final CacheManager cacheManager;
+  private final DeviceMapper deviceMapper;
   @Value("${provisioning.secret}")
   private String provisioningSecret;
 
@@ -70,19 +67,17 @@ public class DeviceService {
       throw new DuplicateMacAddressException(req.macAddress());
     }
 
-    Device device = convertRequestToDevice(req);
+    Device device = deviceMapper.deviceProvisionRequestToDevice(req);
 
     // Generate, hash and set device secret
     String rawSecret = EncryptionUtil.generateRandomString(32);
     String hashed = encryptionUtil.encrypt(rawSecret);
     device.setSecret(hashed);
-
-    // Save device
     Device saved = deviceRepository.save(device);
 
     evictGlobalCache();
     // Return device details along with the raw secret
-    return DeviceUtil.convertProvisionDeviceToResponse(saved, rawSecret);
+    return deviceMapper.deviceToDeviceProvisionResponse(saved, rawSecret);
   }
 
   /**
@@ -106,7 +101,7 @@ public class DeviceService {
       throw new BadCredentialsException("Invalid provisioning token");
     }
 
-    Device device = convertRequestToDevice(req);
+    Device device = deviceMapper.deviceProvisionRequestToDevice(req);
 
     // Generate, hash and set device secret
     String rawSecret = EncryptionUtil.generateRandomString(32);
@@ -118,7 +113,7 @@ public class DeviceService {
 
     evictGlobalCache();
     // Return device details along with the raw secret
-    return DeviceUtil.convertProvisionDeviceToResponse(saved, rawSecret);
+    return deviceMapper.deviceToDeviceProvisionResponse(saved, rawSecret);
   }
 
   /**
@@ -146,7 +141,7 @@ public class DeviceService {
     device.setDisplayOrder(calculateDeviceOrder(userId));
     deviceRepository.save(device);
     evictDeviceCaches(device.getId(), userId);
-    return DeviceUtil.convertDeviceToResponse(device);
+    return deviceMapper.deviceToDeviceResponse(device);
   }
 
   /**
@@ -203,7 +198,7 @@ public class DeviceService {
     }
     return devices
         .stream()
-        .map(DeviceUtil::convertDeviceToResponse)
+        .map(deviceMapper::deviceToDeviceResponse)
         .sorted(Comparator.comparing(DeviceResponse::displayOrder))
         .toList();
   }
@@ -219,22 +214,21 @@ public class DeviceService {
     if (devices.isEmpty()) {
       throw new DeviceFetchException("No devices found in the system");
     }
-    return devices.map(DeviceUtil::convertDeviceToResponse);
+    return devices.map(deviceMapper::deviceToDeviceResponse);
   }
 
-
   @Transactional
-  public DeviceResponse updateDeviceDetails(long deviceId, DeviceUpdateRequest req, long requestingUserId, boolean isAdmin)
+  public DeviceResponse updateDeviceDetails(long deviceId, DeviceUpdateRequest req,
+      Long requestingUserId)
       throws AccessDeniedException {
-    return doUpdateDeviceDetails(deviceId, req, requestingUserId, isAdmin);
+    return doUpdateDeviceDetails(deviceId, req, requestingUserId, null, false);
   }
 
-  /**
-   * Update devices override for admin users
-   */
   @Transactional
-  public DeviceResponse updateDeviceDetailsAdmin(long deviceId, DeviceUpdateRequest req) {
-    return doUpdateDeviceDetails(deviceId, req, 0L, true);
+  public DeviceResponse updateDeviceDetailsAdmin(long deviceId, AdminDeviceUpdateRequest req)
+      throws AccessDeniedException {
+    return doUpdateDeviceDetails(deviceId, deviceMapper.adminToNonAdminDeviceUpdateRequest(req),
+        null, req.userId(), true);
   }
 
   /**
@@ -243,28 +237,30 @@ public class DeviceService {
    * @param deviceId the ID of the device to update
    * @param req the device update request DTO
    * @param requestingUserId the ID of the currently authenticated user making the request
+   * @param newUserId the new user ID to assign to the device (admin only)
    * @param isAdmin whether the request is made by an admin user
    * @return the updated device response DTO
    * @throws DeviceNotFoundException if the device is not found
    * @throws AccessDeniedException   if the device does not belong to the requesting user,
    *                                 or if a non-admin attempts to update restricted fields
    */
-  private DeviceResponse doUpdateDeviceDetails(long deviceId, DeviceUpdateRequest req, long requestingUserId, boolean isAdmin)
+  private DeviceResponse doUpdateDeviceDetails(long deviceId, DeviceUpdateRequest req,
+      Long requestingUserId, Long newUserId, boolean isAdmin)
       throws AccessDeniedException {
     Device device = deviceRepository.findById(deviceId).orElseThrow(
         () -> new DeviceNotFoundException(deviceId));
 
+    String technicalName = req.technicalName();
+    String firmware = req.firmware();
+    Long originalUserId = device.getUserId();
+
     // Verify ownership and guard against non-admin users trying to update restricted fields
     if (!isAdmin) {
       verifyDeviceOwnership(requestingUserId, deviceId);
-      if (req.technicalName() != null || req.firmware() != null || req.userId() != null) {
+      if (technicalName != null || firmware != null || newUserId != null) {
         throw new AccessDeniedException("Non-admin users cannot update technicalName, firmware, or userId");
       }
     }
-
-    String technicalName = req.technicalName();
-    String firmware = req.firmware();
-    String name = req.friendlyName();
 
     // Restricted fields: technicalName, firmware, userId
     if (technicalName != null && !technicalName.isEmpty()) {
@@ -273,42 +269,17 @@ public class DeviceService {
     if (firmware != null && !firmware.isEmpty()) {
       device.setFirmware(firmware);
     }
-    // userId and displayOrder have been prevalidated to be positive non-null Long values by
-    // the controller
-    if (req.userId() != null) {
-      device.setUserId(req.userId());
+    if (newUserId != null) {
+      device.setUserId(newUserId);
     }
 
     // Common fields: friendlyName, location, description, imageUrl, displayOrder
-    // They can be empty, app will show a fallback, like device key in the case of
+    // They can be empty, app will show a fallback, like device key (MQTT) in the case of
     // missing friendly name.
-    if (name != null) {
-      device.setFriendlyName(name);
-    }
-    // Users still have the option to label their device location, since most times GPS
-    // location name won't be the most useful.
-    if (req.locationLabel() != null) {
-      device.setLocationLabel(req.locationLabel());
-    }
-    // Location coordinates are set on demand to whatever location the App gets from the phone.
-    if (req.locationCoordinates() != null) {
-      device.setLocationCoordinates(req.locationCoordinates());
-    }
-    if (req.description() != null) {
-      device.setDescription(req.description());
-    }
-    // TODO: dedicated endpoint for image upload and save the URL here afterwards.
-    if (req.imageUrl() != null) {
-      device.setImageUrl(req.imageUrl());
-    }
-    if (req.displayOrder() != null) {
-      device.setDisplayOrder(req.displayOrder());
-    }
+    deviceMapper.updateDeviceFromRequest(req, device);
 
-    Device saved = deviceRepository.save(device);
-    // If an admin is updating a device, we want to evict the cache for the user that owns the device
-    evictDeviceCaches(deviceId, isAdmin ? saved.getUserId() : requestingUserId);
-    return DeviceUtil.convertDeviceToResponse(saved);
+    evictDeviceCaches(deviceId, Objects.requireNonNullElse(newUserId, originalUserId));
+    return deviceMapper.deviceToDeviceResponse(device);
   }
 
   /**
@@ -389,41 +360,6 @@ public class DeviceService {
   /*--------------------------*/
   /* Helper Methods */
   /*--------------------------*/
-
-  /**
-   * Converts a DeviceProvisionRequest DTO to a Device entity.
-   *
-   * @param req the device provision request DTO
-   * @return the device entity
-   */
-  private Device convertRequestToDevice(DeviceProvisionRequest req) {
-    Device device = new Device();
-    device.setTechnicalName(req.technicalName());
-    device.setFirmware(req.firmware());
-    device.setKey(req.key());
-    device.setMacAddress(req.macAddress());
-    return device;
-  }
-
-  /**
-   * Converts a Device entity to a DeviceResponse DTO.
-   *
-   * @param device the device entity
-   * @return the device response DTO
-   */
-  private DeviceResponse convertDeviceToResponse(Device device) {
-    return DeviceResponse.builder()
-        .id(device.getId())
-        .key(device.getKey())
-        .technicalName(device.getTechnicalName())
-        .friendlyName(device.getFriendlyName())
-        .firmware(device.getFirmware())
-        .macAddress(device.getMacAddress())
-        .userId(device.getUserId())
-        .linkedAt(device.getLinkedAt())
-        .displayOrder(device.getDisplayOrder())
-        .build();
-  }
 
   /**
    * Calculates the next display order for a user's devices.
@@ -509,8 +445,6 @@ public class DeviceService {
   private void evictGlobalCache() {
     Objects.requireNonNull(cacheManager.getCache("allDevicesCache")).clear();
   }
-
-
 }
 
 /**

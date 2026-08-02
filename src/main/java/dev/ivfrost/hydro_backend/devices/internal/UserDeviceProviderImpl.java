@@ -1,5 +1,6 @@
 package dev.ivfrost.hydro_backend.devices.internal;
 
+import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.UserDeviceProvider;
@@ -21,8 +22,14 @@ class UserDeviceProviderImpl implements UserDeviceProvider {
   }
 
   @Override
-  public DeviceResponse updateUserDevice(long deviceId, DeviceUpdateRequest req, long reqUserId, boolean isAdmin) {
-    return deviceService.updateDeviceDetails(deviceId, req, reqUserId, isAdmin);
+  public DeviceResponse updateUserDevice(long deviceId, DeviceUpdateRequest req, long reqUserId) {
+    return deviceService.updateDeviceDetails(deviceId, req, reqUserId);
+  }
+
+  @Override
+  public DeviceResponse updateUserDeviceAdmin(long deviceId, AdminDeviceUpdateRequest request,
+      long reqUserId) {
+    return deviceService.updateDeviceDetailsAdmin(deviceId, request);
   }
 
   @Override

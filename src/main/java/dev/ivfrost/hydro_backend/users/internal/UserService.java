@@ -1,8 +1,10 @@
 package dev.ivfrost.hydro_backend.users.internal;
 
 import com.auth0.jwt.interfaces.Claim;
+import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkProvider;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
+import dev.ivfrost.hydro_backend.devices.DeviceMapper;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUnlinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
@@ -57,6 +59,7 @@ public class UserService {
   private final UserDeviceProvider userDeviceProvider;
   private final DeviceLinkProvider deviceLinkProvider;
   private final UserMapper userMapper;
+  private final DeviceMapper deviceMapper;
 
   /**
    * Authenticates a user by email and password.
@@ -371,8 +374,7 @@ public class UserService {
    */
   DeviceResponse updateDeviceForCurrentUser(long deviceId, DeviceUpdateRequest req) {
     User user = getCurrentUser();
-    boolean isAdmin = userMapper.mapRoles(user.getRoles()).contains(UserRole.Role.ADMIN.toString());
-    return userDeviceProvider.updateUserDevice(deviceId, req, user.getId(), isAdmin);
+    return userDeviceProvider.updateUserDevice(deviceId, req, user.getId());
   }
 
   /*
