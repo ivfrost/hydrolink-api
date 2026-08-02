@@ -1,5 +1,6 @@
 package dev.ivfrost.hydro_backend.storage.internal;
 
+import dev.ivfrost.hydro_backend.config.MinioProperties;
 import dev.ivfrost.hydro_backend.storage.DownloadedFile;
 import dev.ivfrost.hydro_backend.storage.FileDownloadException;
 import dev.ivfrost.hydro_backend.storage.FileUploadException;
@@ -24,9 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class StorageService {
 
   private final MinioClient minioClient;
-
-  @Value("${minio.bucket-name:hydro-storage}")
-  private String bucketName;
+  private final MinioProperties minioProperties;
 
   public UploadResponse uploadFile(MultipartFile file, String folderPrefix) {
     // Generate clean filename using FileUtils
@@ -39,7 +38,7 @@ public class StorageService {
 
       ObjectWriteResponse response = minioClient.putObject(
           PutObjectArgs.builder()
-              .bucket(bucketName)
+              .bucket(minioProperties.bucketName())
               .object(objectKey)
               .stream(inputStream, file.getSize(), -1L)
               .contentType(file.getContentType())
@@ -59,7 +58,7 @@ public class StorageService {
     try {
       GetObjectResponse response = minioClient.getObject(
           GetObjectArgs.builder()
-              .bucket(bucketName)
+              .bucket(minioProperties.bucketName())
               .object(objectKey)
               .build());
 

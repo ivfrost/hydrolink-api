@@ -216,7 +216,7 @@ public class UserController {
                   {
                     "fullName": "Test User Updated",
                     "email": "updated_user@hydro.com",
-                    "currentPassword" "current_password"
+                    "currentPassword": "current_password"
                   }
                   """,
               summary = "Example of updating account settings"

@@ -1,11 +1,14 @@
 package dev.ivfrost.hydro_backend.storage;
 
 import org.apache.commons.io.FilenameUtils;
-import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import java.util.UUID;
 
 public class FileUtils {
+
+  private FileUtils() {
+    // Private constructor to prevent instantiation
+  }
 
   public static String generateStoredFilename(String originalFilename) {
     // Fallback if filename is empty or null

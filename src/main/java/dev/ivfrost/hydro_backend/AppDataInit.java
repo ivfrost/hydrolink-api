@@ -1,16 +1,16 @@
 package dev.ivfrost.hydro_backend;
 
+import dev.ivfrost.hydro_backend.config.ApiProperties;
+import dev.ivfrost.hydro_backend.config.SeedProperties;
 import dev.ivfrost.hydro_backend.devices.internal.Device;
 import dev.ivfrost.hydro_backend.devices.internal.DeviceRepository;
-import dev.ivfrost.hydro_backend.tokens.EncryptionUtil;
+import dev.ivfrost.hydro_backend.tokens.DeviceKeyEncriptionUtil;
 import dev.ivfrost.hydro_backend.users.internal.User;
 import dev.ivfrost.hydro_backend.users.internal.UserRepository;
 import dev.ivfrost.hydro_backend.users.internal.UserRole;
 import java.time.Instant;
-import java.util.List;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.CommandLineRunner;
@@ -26,24 +26,9 @@ public class AppDataInit implements ApplicationRunner {
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
   private final DeviceRepository deviceRepository;
-  private final EncryptionUtil encryptionUtil;
-
-  @Value("${seed.admin.email}")
-  private String adminEmail;
-  @Value("${seed.admin.password}")
-  private String adminPassword;
-  @Value("${api.mqtt.username}")
-  private String apiMqttUsername;
-  @Value("${api.mqtt.password}")
-  private String apiMqttPassword;
-  @Value("${seed.device1.key}")
-  private String device1Key;
-  @Value("${seed.device1.secret}")
-  private String device1Secret;
-  @Value("${seed.device2.key}")
-  private String device2Key;
-  @Value("${seed.device2.secret}")
-  private String device2Secret;
+  private final DeviceKeyEncriptionUtil encryptionUtil;
+  private final SeedProperties seedProperties;
+  private final ApiProperties apiProperties;
 
   // Seed the database with an admin user and an MQTT API user if they don't exist
   @Override
@@ -53,21 +38,21 @@ public class AppDataInit implements ApplicationRunner {
       User adminUser = User.builder()
           .username("admin")
           .fullName("Admin User")
-          .password(passwordEncoder.encode(adminPassword))
-          .email(adminEmail)
+          .password(passwordEncoder.encode(seedProperties.adminPassword()))
+          .email(seedProperties.adminEmail())
           .createdAt(Instant.now())
           .updatedAt(Instant.now())
           .build();
       adminUser.getRoles().add(new UserRole(adminUser, UserRole.Role.ADMIN));
       userRepository.save(adminUser);
     }
-    if (userRepository.findByUsername(apiMqttUsername).isEmpty()) {
+    if (userRepository.findByUsername(apiProperties.mqttUsername()).isEmpty()) {
       User mqttApiUser =
       userRepository.save(User.builder()
-          .username(apiMqttUsername)
+          .username(apiProperties.mqttUsername())
           .fullName("MQTT API User")
-          .password(passwordEncoder.encode(apiMqttPassword))
-          .email(String.format("%s@internal.hydro", apiMqttUsername))
+          .password(passwordEncoder.encode(apiProperties.mqttPassword()))
+          .email(String.format("%s@internal.hydro", apiProperties.mqttUsername()))
           .createdAt(Instant.now())
           .updatedAt(Instant.now())
           .build());
@@ -81,23 +66,23 @@ public class AppDataInit implements ApplicationRunner {
   @Profile("!prod")
   public CommandLineRunner initDevices() {
     return args -> {
-      if (deviceRepository.findByKey(device1Key).isEmpty()) {
+      if (deviceRepository.findByKey(seedProperties.device1Key()).isEmpty()) {
         deviceRepository.save(Device.builder()
-            .key(device1Key)
+            .key(seedProperties.device1Key())
             .macAddress("00:11:22:33:44:55")
             .firmware("1.0.0")
-            .secret(encryptionUtil.encrypt(device1Secret))
+            .secret(encryptionUtil.encrypt(seedProperties.device1Secret()))
             .technicalName("hydro-device-1")
             .friendlyName("Living Room")
             .locationLabel("Living Room")
             .locationCoordinates("37.7749° N, 122.4194° W")
             .build());
       }
-      if (deviceRepository.findByKey(device2Key).isEmpty()) {
+      if (deviceRepository.findByKey(seedProperties.device2Key()).isEmpty()) {
         deviceRepository.save(Device.builder()
-            .key(device2Key)
+            .key(seedProperties.device2Key())
             .macAddress("66:77:88:99:AA:BB")
-            .secret(encryptionUtil.encrypt(device2Secret))
+            .secret(encryptionUtil.encrypt(seedProperties.device2Secret()))
             .firmware("1.0.0")
             .technicalName("hydro-device-2")
             .friendlyName("Kitchen")

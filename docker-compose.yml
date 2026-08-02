@@ -24,13 +24,11 @@ services:
     image: redis:7-alpine
     container_name: redis_dev
     restart: on-failure:3
-    command: redis-server --loglevel verbose --port ${REDIS_PORT}
-    ports:
-      - '6379:6379'
+    command: redis-server --requirepass ${REDIS_PASSWORD} --port ${REDIS_PORT}
     volumes:
       - cache:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
       start_period: 30s
       interval: 10s
       timeout: 5s
@@ -59,18 +57,25 @@ services:
     container_name: minio_dev
     restart: on-failure:3
     environment:
-      MINIO_SERVER_URL: ${MINIO_SERVER_EXT_URL}
+      MINIO_URL: ${MINIO_URL}
+      MINIO_SERVER_URL: ${MINIO_EXT_URL}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_DEFAULT_BUCKETS: ${MINIO_DEFAULT_BUCKETS}
-    ports:
-      - "9000:9000" # API
-      - "9001:9001" # Web console
     networks:
       - hydro-network
     command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
     volumes:
       - miniodata:/data
+    healthcheck:
+      test: [ "CMD", "mc", "ready", "local" ]
+      start_period: 15s
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:

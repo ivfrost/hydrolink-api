@@ -1,6 +1,6 @@
 package dev.ivfrost.hydro_backend.tokens.internal;
 
-import dev.ivfrost.hydro_backend.tokens.EncryptionUtil;
+import dev.ivfrost.hydro_backend.tokens.DeviceKeyEncriptionUtil;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 import lombok.extern.slf4j.Slf4j;
@@ -16,12 +16,12 @@ import org.springframework.stereotype.Component;
 @Component
 class TokenValueConverter implements AttributeConverter<String, String> {
 
-  private final EncryptionUtil encryptionUtil;
+  private final DeviceKeyEncriptionUtil encryptionUtil;
   private final String recoverySecret;
 
   public TokenValueConverter(
-      EncryptionUtil encryptionUtil,
-      @Value("${recovery.secret}") String recoverySecret) {
+      DeviceKeyEncriptionUtil encryptionUtil,
+      @Value("${user.recovery-secret}") String recoverySecret) {
     this.encryptionUtil = encryptionUtil;
     this.recoverySecret = recoverySecret;
   }

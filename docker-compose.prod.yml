@@ -13,37 +13,58 @@ services:
         condition: service_healthy
       nanomq:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-stage}
-      JWT_SECRET: ${JWT_SECRET:-${SERVICE_HEX_32_1}}
-      RECOVERY_SECRET: ${RECOVERY_SECRET:-${SERVICE_HEX_32_2}}
-      DEVICE_SECRET: ${DEVICE_SECRET:-${SERVICE_HEX_32_3}}
-      MQTT_PRIVATE_KEY_B64: ${MQTT_PRIVATE_KEY_B64:?}
+
+      # User secrets
+      USER_JWT_SECRET: ${USER_JWT_SECRET:-${SERVICE_HEX_32_1}}
+      USER_RECOVERY_SECRET: ${USER_RECOVERY_SECRET:-${SERVICE_HEX_32_2}}
+      USER_MQTT_TOKEN_PRIVATE_KEY: ${USER_MQTT_TOKEN_PRIVATE_KEY:?}
+
+      # Device secrets
+      DEVICE_KEY_SECRET: ${DEVICE_KEY_SECRET:-${SERVICE_HEX_32_3}}
+      DEVICE_PROVISIONING_SECRET: ${DEVICE_PROVISIONING_SECRET:-${SERVICE_HEX_32_11}}
+
+      # MQTT
       MQTT_BROKER_URL: ${MQTT_BROKER_URL:-tcp://nanomq:1883}
+      USER_TOKEN_ISSUER: ${USER_TOKEN_ISSUER:-hydro-api}
+      USER_ACCESS_TOKEN_EXPIRATION: ${USER_ACCESS_TOKEN_EXPIRATION:-900000}
+      USER_REFRESH_TOKEN_EXPIRATION: ${USER_REFRESH_TOKEN_EXPIRATION:-2592000000}
+      USER_MQTT_TOKEN_EXPIRATION: ${USER_MQTT_TOKEN_EXPIRATION:-600000}
+
+      # API MQTT client
+      API_MQTT_CLIENT_ID: ${API_MQTT_CLIENT_ID:-hydro-api}
+      API_MQTT_USERNAME: ${API_MQTT_USERNAME:-hydro-api-user}
+      API_MQTT_PASSWORD: ${API_MQTT_PASSWORD:-${SERVICE_HEX_32_8}}
+
+      # Database
       DB_URL: ${DB_URL:-jdbc:postgresql://postgres:5432/hydrodb-stage}
       DB_USERNAME: ${DB_USERNAME:-hydro}
       DB_PASSWORD: ${DB_PASSWORD:-${SERVICE_HEX_32_5}}
+
+      # Redis
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-${SERVICE_HEX_32_6}}
+
+      # CORS
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://hydro.netoasis.dedyn.io}
+
+      # Seed data
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@hydro.netoasis.dedyn.io}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-${SERVICE_HEX_32_8}}
       SEED_DEVICE1_KEY: ${SEED_DEVICE1_KEY:-HYDRO-AE720F}
       SEED_DEVICE2_KEY: ${SEED_DEVICE2_KEY:-HYDRO-BB7F1E}
       SEED_DEVICE1_SECRET: ${SEED_DEVICE1_SECRET:-${SERVICE_HEX_32_9}}
       SEED_DEVICE2_SECRET: ${SEED_DEVICE2_SECRET:-${SERVICE_HEX_32_10}}
-      PROVISIONING_SECRET: ${PROVISIONING_SECRET:-${SERVICE_HEX_32_11}}
-      API_MQTT_USERNAME: ${API_MQTT_USERNAME:-hydro-api-user}
-      API_MQTT_PASSWORD: ${API_MQTT_PASSWORD:-${SERVICE_HEX_32_8}}
-      API_MQTT_CLIENT_ID: ${API_MQTT_CLIENT_ID:-hydro-api}
-      JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-2592000000}
-      JWT_ACCESS_EXPIRATION_MS: ${JWT_ACCESS_EXPIRATION_MS:-900000}
-      JWT_ISSUER: ${JWT_ISSUER:-hydro-api}
+
+      # Springdoc
       SPRINGDOC_API_DOCS_ENABLED: ${SPRINGDOC_API_DOCS_ENABLED:-false}
       SPRINGDOC_SWAGGER_UI_ENABLED: ${SPRINGDOC_SWAGGER_UI_ENABLED:-false}
     networks:
-      hydro-network-stage:
+      hydro-network:
         aliases:
           - api
     deploy:
@@ -59,7 +80,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME:-hydrodb-stage}
     volumes:
-      - pgdata-stage:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME}" ]
       start_period: 30s
@@ -67,14 +88,14 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - hydro-network-stage
+      - hydro-network
 
   redis:
     image: redis:7-alpine
     restart: on-failure:3
     command: redis-server --requirepass ${REDIS_PASSWORD} --port ${REDIS_PORT}
     volumes:
-      - cache-stage:/data
+      - cache:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       start_period: 30s
@@ -82,7 +103,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      hydro-network-stage:
+      hydro-network:
         aliases:
           - redis
 
@@ -105,14 +126,15 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - hydro-network-stage
+      - hydro-network
 
   minio:
     image: minio/minio
     container_name: minio_dev
     restart: on-failure:3
     environment:
-      MINIO_SERVER_URL: ${MINIO_SERVER_EXT_URL}
+      MINIO_URL: ${MINIO_URL}
+      MINIO_SERVER_URL: ${MINIO_EXT_URL}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_DEFAULT_BUCKETS: ${MINIO_DEFAULT_BUCKETS}
@@ -121,15 +143,22 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - miniodata:/data
+    healthcheck:
+      test: [ "CMD", "mc", "ready", "local" ]
+      start_period: 15s
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:
           memory: 300m
 
 volumes:
-  pgdata-stage:
-  cache-stage:
+  pgdata:
+  cache:
+  miniodata:
 
 networks:
-  hydro-network-stage:
+  hydro-network:
     driver: bridge

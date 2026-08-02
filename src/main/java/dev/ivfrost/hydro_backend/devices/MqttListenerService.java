@@ -1,6 +1,7 @@
 package dev.ivfrost.hydro_backend.devices;
 
-import dev.ivfrost.hydro_backend.devices.internal.DeviceService;
+import dev.ivfrost.hydro_backend.config.ApiProperties;
+import dev.ivfrost.hydro_backend.config.MqttProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -10,7 +11,6 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
@@ -21,20 +21,8 @@ import org.springframework.stereotype.Service;
 @Service
 class MqttListenerService {
 
-  private final DeviceService deviceService;
-
-  @Value("${mqtt.broker.url}")
-  private String mqttBrokerUrl;
-  @Value("${mqtt.topic.wildcard}")
-  private String mqttTopicWildcard;
-  @Value("${api.mqtt.client.id}")
-  private String mqttClientId;
-  @Value("${api.mqtt.username}")
-  private String mqttUsername;
-  @Value("${api.mqtt.password}")
-  private String mqttPassword;
-
-  private MqttClient client;
+  private final MqttProperties mqttProperties;
+  private final ApiProperties apiProperties;
 
   @Async
   @EventListener(ApplicationReadyEvent.class)
@@ -51,11 +39,12 @@ class MqttListenerService {
     while (attempts < maxAttempts) {
       try {
         attempts++;
-        client = new MqttClient(mqttBrokerUrl, mqttClientId, new MemoryPersistence());
+        MqttClient client = new MqttClient(mqttProperties.brokerUrl(), apiProperties.mqttClientId(),
+            new MemoryPersistence());
         MqttConnectOptions options = new MqttConnectOptions();
         options.setCleanSession(true);
-        options.setUserName(mqttUsername);
-        options.setPassword(mqttPassword.toCharArray());
+        options.setUserName(apiProperties.mqttUsername());
+        options.setPassword(apiProperties.mqttPassword().toCharArray());
         options.setAutomaticReconnect(true);
 
         client.setCallback(new MqttCallback() {
@@ -81,8 +70,8 @@ class MqttListenerService {
         });
 
         client.connect(options);
-        client.subscribe(mqttTopicWildcard);
-        log.info("MQTT client connected successfully to {}", mqttBrokerUrl);
+        client.subscribe(mqttProperties.topicWildcard());
+        log.info("MQTT client connected successfully to {}", mqttProperties.brokerUrl());
         return;
       } catch (MqttException e) {
         log.warn("MQTT connection attempt {}/{} failed", attempts, maxAttempts, e);

@@ -8,19 +8,19 @@ import com.auth0.jwt.exceptions.JWTDecodeException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import dev.ivfrost.hydro_backend.config.UserProperties;
 import java.security.KeyFactory;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
+import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -29,18 +29,8 @@ import org.springframework.stereotype.Component;
 public class JWTUtil {
 
   private static final String AUTH_TOKEN_SUBJECT = "UserDetails";
-  @Value("${jwt.auth.token.issuer}")
-  private String issuer;
-  @Value("${jwt.secret}")
-  private String jwtSecret;
-  @Value("${jwt.access.expiration.ms}")
-  private Long jwtAccessExpirationMs;
-  @Value("${jwt.refresh.expiration.ms}")
-  private Long jwtRefreshExpirationMs;
-  @Value("${mqtt.jwt.private.key.b64}")
-  private String mqttJwtPrivateKeyB64;
-  @Value("${mqtt.jwt.expiration.ms}")
-  private Long mqttJwtExpirationMs;
+
+  private final UserProperties userProperties;
 
   private Algorithm cachedMqttAlgorithm;
 
@@ -57,20 +47,20 @@ public class JWTUtil {
         .withClaim("username", payload.username())
         .withClaim("email", payload.email())
         .withClaim("roles", roles)
-        .withIssuer(issuer);
+        .withIssuer(userProperties.tokenIssuer());
   }
 
   private Algorithm getAuthAlgorithm() {
-    byte[] secretBytes = jwtSecret.getBytes();
+    byte[] secretBytes = userProperties.jwtSecret().getBytes();
     return Algorithm.HMAC512(secretBytes);
   }
 
   // Sign auth JWT token with HMAC using SHA-512
-  private String signAccessToken(JWTCreator.Builder builder, Long expirationMs)
+  private String signAccessToken(JWTCreator.Builder builder, Duration expiration)
       throws JWTCreationException {
     try {
       Instant now = Instant.now();
-      Instant expiresAt = now.plus(expirationMs, ChronoUnit.MILLIS);
+      Instant expiresAt = now.plus(expiration);
       return builder
           .withIssuedAt(now)
           .withExpiresAt(expiresAt)
@@ -90,13 +80,13 @@ public class JWTUtil {
       log.error("Error building JWT token", e);
       throw e;
     }
-    return signAccessToken(builder, jwtAccessExpirationMs);
+    return signAccessToken(builder, userProperties.accessTokenExpiration());
   }
 
   // Create long-lived auth refresh JWT token for obtaining new short-lived tokens
   public String generateRefreshToken(TokenPayload payload) {
     JWTCreator.Builder builder = buildAccessToken(payload);
-    return signAccessToken(builder, jwtRefreshExpirationMs);
+    return signAccessToken(builder, userProperties.refreshTokenExpiration());
   }
 
   // Build JWT token for MQTT authentication
@@ -108,7 +98,7 @@ public class JWTUtil {
         .withSubject(payload.userId().toString())
         .withClaim("subs", payload.topics())
         .withClaim("publ", payload.topics())
-        .withIssuer(issuer);
+        .withIssuer(userProperties.tokenIssuer());
     if (payload.deviceId() != null) {
       builder.withClaim("deviceId", payload.deviceId());
     }
@@ -116,11 +106,11 @@ public class JWTUtil {
   }
 
   // Sign auth MQTT JWT token with RSA using SHA-256
-  private String signMqttToken(JWTCreator.Builder builder, Long expirationMs)
+  private String signMqttToken(JWTCreator.Builder builder, Duration expiration)
       throws JWTCreationException {
     try {
       Instant now = Instant.now();
-      Instant expiresAt = now.plus(expirationMs, ChronoUnit.MILLIS);
+      Instant expiresAt = now.plus(expiration);
       return builder
           .withIssuedAt(now)
           .withExpiresAt(expiresAt)
@@ -140,7 +130,7 @@ public class JWTUtil {
       log.error("Error building MQTT JWT token", e);
       throw e;
     }
-    return signMqttToken(builder, mqttJwtExpirationMs);
+    return signMqttToken(builder, userProperties.mqttTokenExpiration());
   }
 
   public Map<String, Claim> validateTokenAndRetrieveClaims(String token)
@@ -152,7 +142,7 @@ public class JWTUtil {
     try {
       jwt = JWT.require(getAuthAlgorithm())
           .withSubject(AUTH_TOKEN_SUBJECT)
-          .withIssuer(issuer)
+          .withIssuer(userProperties.tokenIssuer())
           .build()
           .verify(token);
     } catch (JWTDecodeException e) {
@@ -166,15 +156,15 @@ public class JWTUtil {
   }
 
   public Instant getAccessTokenExpiryDate() {
-    return Instant.now().plus(jwtAccessExpirationMs, ChronoUnit.MILLIS);
+    return Instant.now().plus(userProperties.accessTokenExpiration());
   }
 
   public Instant getRefreshTokenExpiryDate() {
-    return Instant.now().plus(jwtRefreshExpirationMs, ChronoUnit.MILLIS);
+    return Instant.now().plus(userProperties.refreshTokenExpiration());
   }
 
   public Instant getMqttTokenExpiryDate() {
-    return Instant.now().plus(mqttJwtExpirationMs, ChronoUnit.MILLIS);
+    return Instant.now().plus(userProperties.mqttTokenExpiration());
   }
 
   private synchronized Algorithm getMqttAlgorithm() {
@@ -182,7 +172,7 @@ public class JWTUtil {
       return cachedMqttAlgorithm;
     }
     try {
-      byte[] keyBytes = Base64.getDecoder().decode(mqttJwtPrivateKeyB64);
+      byte[] keyBytes = Base64.getDecoder().decode(userProperties.mqttTokenPrivateKey());
       KeyFactory keyFactory = KeyFactory.getInstance("RSA");
       PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
       RSAPrivateKey privateKey = (RSAPrivateKey) keyFactory.generatePrivate(keySpec);
@@ -207,7 +197,7 @@ public class JWTUtil {
     }
 
     return JWT.require(getMqttAlgorithm())
-        .withIssuer(issuer)
+        .withIssuer(userProperties.tokenIssuer())
         .build()
         .verify(token);
   }

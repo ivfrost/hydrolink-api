@@ -1,6 +1,7 @@
 package dev.ivfrost.hydro_backend.devices.internal;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import dev.ivfrost.hydro_backend.config.DeviceProperties;
 import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceAuthRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceFetchException;
@@ -11,12 +12,12 @@ import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
-import dev.ivfrost.hydro_backend.devices.internal.DeviceController.MqttAclRequest;
-import dev.ivfrost.hydro_backend.devices.internal.DeviceController.MqttAuthRequest;
+import dev.ivfrost.hydro_backend.devices.MqttAclRequest;
+import dev.ivfrost.hydro_backend.devices.MqttAuthRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DuplicateMacAddressException;
 import dev.ivfrost.hydro_backend.tokens.DeviceTokenProvider;
-import dev.ivfrost.hydro_backend.tokens.EncryptionUtil;
+import dev.ivfrost.hydro_backend.tokens.DeviceKeyEncriptionUtil;
 import dev.ivfrost.hydro_backend.tokens.MqttTokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
 import java.time.Instant;
@@ -29,7 +30,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -47,11 +47,11 @@ public class DeviceService {
   private final DeviceRepository deviceRepository;
   private final DeviceCacheService deviceCacheService;
   private final DeviceTokenProvider deviceTokenProvider;
-  private final EncryptionUtil encryptionUtil;
+  private final DeviceKeyEncriptionUtil encryptionUtil;
   private final CacheManager cacheManager;
   private final DeviceMapper deviceMapper;
-  @Value("${provisioning.secret}")
-  private String provisioningSecret;
+
+  private final DeviceProperties deviceProperties;
 
   /**
    * Provisions a new device and generates a secret for ownership verification.
@@ -70,7 +70,7 @@ public class DeviceService {
     Device device = deviceMapper.deviceProvisionRequestToDevice(req);
 
     // Generate, hash and set device secret
-    String rawSecret = EncryptionUtil.generateRandomString(32);
+    String rawSecret = DeviceKeyEncriptionUtil.generateRandomString(32);
     String hashed = encryptionUtil.encrypt(rawSecret);
     device.setSecret(hashed);
     Device saved = deviceRepository.save(device);
@@ -95,6 +95,7 @@ public class DeviceService {
       throw new BadCredentialsException("Missing or invalid Authorization header");
     }
     String token = authorizationHeader.replace("Bearer ", "").trim();
+    String provisioningSecret = deviceProperties.provisioningSecret();
     log.debug("token='{}' (len={}), provisioningSecret='{}' (len={})",
         token, token.length(), provisioningSecret, provisioningSecret.length());
     if (!provisioningSecret.equals(token)) {
@@ -104,7 +105,7 @@ public class DeviceService {
     Device device = deviceMapper.deviceProvisionRequestToDevice(req);
 
     // Generate, hash and set device secret
-    String rawSecret = EncryptionUtil.generateRandomString(32);
+    String rawSecret = DeviceKeyEncriptionUtil.generateRandomString(32);
     String hashed = encryptionUtil.encrypt(rawSecret);
     device.setSecret(hashed);
 
@@ -399,7 +400,7 @@ public class DeviceService {
   public String regenerateDeviceSecret(Long deviceId) {
     Device device = deviceRepository.findById(deviceId)
         .orElseThrow(() -> new DeviceNotFoundException(deviceId));
-    String rawSecret = EncryptionUtil.generateRandomString(32);
+    String rawSecret = DeviceKeyEncriptionUtil.generateRandomString(32);
     String encryptedSecret = encryptionUtil.encrypt(rawSecret);
     device.setSecret(encryptedSecret);
     deviceRepository.save(device);

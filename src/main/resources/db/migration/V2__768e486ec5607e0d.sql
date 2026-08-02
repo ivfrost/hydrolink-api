@@ -4,7 +4,7 @@ ALTER TABLE devices
 ALTER TABLE devices
     ADD location_label VARCHAR(255);
 
-DROP TABLE event_publication CASCADE;
+DROP TABLE IF EXISTS event_publication CASCADE;
 
 ALTER TABLE devices DROP COLUMN IF EXISTS last_seen;
 ALTER TABLE devices DROP COLUMN IF EXISTS location;

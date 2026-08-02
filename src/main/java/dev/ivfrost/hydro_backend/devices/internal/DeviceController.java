@@ -7,6 +7,8 @@ import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
+import dev.ivfrost.hydro_backend.devices.MqttAclRequest;
+import dev.ivfrost.hydro_backend.devices.MqttAuthRequest;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -302,20 +304,4 @@ public class DeviceController {
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device secret regenerated successfully", response));
   }
-
-  // ======= REQUEST PAYLOAD RECORDS =======
-
-  public record MqttAuthRequest(
-      @NotBlank String username,
-      @NotBlank String password,
-      @NotBlank String clientid
-  ) {}
-
-  public record MqttAclRequest(
-      @NotBlank String username,
-      @NotBlank String clientid,
-      @NotBlank String topic,
-      @PositiveOrZero int action,
-      @NotBlank String password
-  ) {}
 }

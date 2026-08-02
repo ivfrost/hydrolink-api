@@ -1,5 +1,6 @@
 package dev.ivfrost.hydro_backend.config;
 
+import lombok.RequiredArgsConstructor;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -12,24 +13,21 @@ import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannel
 import org.springframework.integration.mqtt.support.DefaultPahoMessageConverter;
 import org.springframework.messaging.MessageChannel;
 
+@RequiredArgsConstructor
 @Configuration
 public class MqttConfig {
 
-  @Value("${mqtt.broker.url}")
-  private String mqttBrokerUrl;
-  @Value("${api.mqtt.username}")
-  private String mqttUsername;
-  @Value("${api.mqtt.password}")
-  private String mqttPassword;
+  private final MqttProperties mqttProperties;
+  private final ApiProperties apiProperties;
 
   @Bean
   public MqttPahoClientFactory mqttClientFactory() {
     DefaultMqttPahoClientFactory factory = new DefaultMqttPahoClientFactory();
     MqttConnectOptions options = new MqttConnectOptions();
-    options.setServerURIs(new String[]{mqttBrokerUrl});
+    options.setServerURIs(new String[]{mqttProperties.brokerUrl()});
     options.setCleanSession(true);
-    options.setUserName(mqttUsername);
-    options.setPassword(mqttPassword.toCharArray());
+    options.setUserName(apiProperties.mqttUsername());
+    options.setPassword(apiProperties.mqttPassword().toCharArray());
     factory.setConnectionOptions(options);
     return factory;
   }
