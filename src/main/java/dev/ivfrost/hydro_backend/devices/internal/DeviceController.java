@@ -18,7 +18,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.PositiveOrZero;
 import java.util.List;
 import java.util.Map;
 import lombok.AllArgsConstructor;
@@ -159,7 +158,7 @@ public class DeviceController {
 
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(
-      summary = "Link device to user by ID (Admin only)",
+      summary = "Link device to user by user ID (Admin only)",
       description = "Links a device to a specific user by their unique ID using the device's secret as ownership proof."
   )
   @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -242,29 +241,29 @@ public class DeviceController {
 
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(
-      summary = "Update device by ID (Admin only)",
-      description = "Updates the details of a device by its unique ID."
+      summary = "Update device by key (Admin only)",
+      description = "Updates the details of a device by its unique key."
   )
-  @PutMapping("/devices/{deviceId}")
+  @PutMapping("/devices/{deviceKey}")
   public ResponseEntity<ApiResponse<DeviceResponse>> updateDeviceDetails(
       @Valid @RequestBody AdminDeviceUpdateRequest req,
-      @Parameter(description = "Target device ID", example = "101")
-      @PathVariable @Positive Long deviceId) {
+      @Parameter(description = "Target device key", example = "HYDRO-A8JD3F")
+      @PathVariable String deviceKey) {
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device updated successfully",
-            deviceService.updateDeviceDetailsAdmin(deviceId, req)));
+            deviceService.updateDeviceDetailsAdmin(deviceKey, req)));
   }
 
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(
-      summary = "Delete device by ID (Admin only)",
-      description = "Deletes a device from the system by its unique ID."
+      summary = "Delete device by key (Admin only)",
+      description = "Deletes a device from the system by its unique key."
   )
-  @DeleteMapping("/devices/{deviceId}")
+  @DeleteMapping("/devices/{deviceKey}")
   public ResponseEntity<ApiResponse<Void>> deleteDeviceById(
-      @Parameter(description = "Target device ID", example = "101")
-      @PathVariable @Positive Long deviceId) {
-    deviceService.deleteDeviceById(deviceId);
+      @Parameter(description = "Target device key", example = "HYDRO-A8JD3F")
+      @PathVariable String deviceKey) {
+    deviceService.deleteDeviceByKey(deviceKey);
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device deleted successfully"));
   }
@@ -292,13 +291,13 @@ public class DeviceController {
       summary = "Regenerate device secret (Admin only)",
       description = "Generates a new secret for a device, replacing the old one."
   )
-  @PostMapping("/devices/{deviceId}/secret/regenerate")
+  @PostMapping("/devices/{deviceKey}/secret/regenerate")
   public ResponseEntity<ApiResponse<Map<String, String>>> regenerateDeviceSecret(
       @Parameter(description = "Target device ID", example = "101")
-      @PathVariable @Positive Long deviceId) {
-    String newSecret = deviceService.regenerateDeviceSecret(deviceId);
+      @PathVariable String deviceKey) {
+    String newSecret = deviceService.regenerateDeviceSecret(deviceKey);
     Map<String, String> response = Map.of(
-        "deviceId", deviceId.toString(),
+        "deviceKey", deviceKey,
         "newSecret", newSecret
     );
     return ResponseEntity.status(HttpStatus.OK)

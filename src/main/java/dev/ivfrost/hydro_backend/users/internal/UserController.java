@@ -369,12 +369,12 @@ public class UserController {
           )
       )
   )
-  @PatchMapping("/me/devices/{deviceId}")
+  @PatchMapping("/me/devices/{deviceKey}")
   public ResponseEntity<ApiResponse<DeviceResponse>> updateDeviceForCurrentUser(
-      @Parameter(description = "Target device ID", example = "101")
-      @PathVariable @Positive Long deviceId,
+      @Parameter(description = "Target device key", example = "HYDRO-A7EDS4")
+      @PathVariable String deviceKey,
       @Valid @RequestBody DeviceUpdateRequest req) {
-    DeviceResponse updatedDevice = userService.updateDeviceForCurrentUser(deviceId, req);
+    DeviceResponse updatedDevice = userService.updateDeviceForCurrentUser(deviceKey, req);
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device updated successfully", updatedDevice));
   }

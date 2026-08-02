@@ -369,12 +369,16 @@ public class UserService {
     deviceLinkProvider.unlinkDevice(req, getCurrentUserId());
   }
 
-  /*
+  /**
    * Updates a device linked to the currently authenticated user.
+   *
+   * @param deviceKey the unique key of the device to update
+   * @param req the device update request containing the new device information
+   * @return {@link DeviceResponse} containing the updated device information
    */
-  DeviceResponse updateDeviceForCurrentUser(long deviceId, DeviceUpdateRequest req) {
+  DeviceResponse updateDeviceForCurrentUser(String deviceKey, DeviceUpdateRequest req) {
     User user = getCurrentUser();
-    return userDeviceProvider.updateUserDevice(deviceId, req, user.getId());
+    return userDeviceProvider.updateUserDevice(deviceKey, req, user.getId());
   }
 
   /*

@@ -141,7 +141,7 @@ public class DeviceService {
     device.setLinkedAt(Instant.now());
     device.setDisplayOrder(calculateDeviceOrder(userId));
     deviceRepository.save(device);
-    evictDeviceCaches(device.getId(), userId);
+    evictDeviceCaches(device.getKey(), userId);
     return deviceMapper.deviceToDeviceResponse(device);
   }
 
@@ -165,19 +165,19 @@ public class DeviceService {
     device.setUserId(null);
     device.setDisplayOrder(0L);
     deviceRepository.save(device);
-    evictDeviceCaches(device.getId(), userId);
+    evictDeviceCaches(deviceKey, userId);
   }
 
   /**
    * Verify device ownership
    *
    * @param userId   the user to verify ownership against
-   * @param deviceId the ID of the device to verify
+   * @param deviceKey the device key to verify ownership of
    * @throws DeviceNotFoundException  if the device is not found
    * @throws IllegalArgumentException if the device does not belong to the specified user
    */
-  public void verifyDeviceOwnership(Long userId, Long deviceId) {
-    Device device = getDeviceById(deviceId);
+  public void verifyDeviceOwnership(Long userId, String deviceKey) {
+    Device device = requireDeviceByKey(deviceKey);
     if (!Objects.equals(device.getUserId(), userId)) {
       throw new IllegalArgumentException("Device does not belong to the specified user");
     }
@@ -218,24 +218,11 @@ public class DeviceService {
     return devices.map(deviceMapper::deviceToDeviceResponse);
   }
 
-  @Transactional
-  public DeviceResponse updateDeviceDetails(long deviceId, DeviceUpdateRequest req,
-      Long requestingUserId)
-      throws AccessDeniedException {
-    return doUpdateDeviceDetails(deviceId, req, requestingUserId, null, false);
-  }
-
-  @Transactional
-  public DeviceResponse updateDeviceDetailsAdmin(long deviceId, AdminDeviceUpdateRequest req)
-      throws AccessDeniedException {
-    return doUpdateDeviceDetails(deviceId, deviceMapper.adminToNonAdminDeviceUpdateRequest(req),
-        null, req.userId(), true);
-  }
 
   /**
    * Updates fields of a specific device by its ID.
    *
-   * @param deviceId the ID of the device to update
+   * @param deviceKey the key of the device to update
    * @param req the device update request DTO
    * @param requestingUserId the ID of the currently authenticated user making the request
    * @param newUserId the new user ID to assign to the device (admin only)
@@ -245,11 +232,10 @@ public class DeviceService {
    * @throws AccessDeniedException   if the device does not belong to the requesting user,
    *                                 or if a non-admin attempts to update restricted fields
    */
-  private DeviceResponse doUpdateDeviceDetails(long deviceId, DeviceUpdateRequest req,
+  private DeviceResponse doUpdateDeviceDetails(String deviceKey, DeviceUpdateRequest req,
       Long requestingUserId, Long newUserId, boolean isAdmin)
       throws AccessDeniedException {
-    Device device = deviceRepository.findById(deviceId).orElseThrow(
-        () -> new DeviceNotFoundException(deviceId));
+    Device device = requireDeviceByKey(deviceKey);
 
     String technicalName = req.technicalName();
     String firmware = req.firmware();
@@ -257,7 +243,7 @@ public class DeviceService {
 
     // Verify ownership and guard against non-admin users trying to update restricted fields
     if (!isAdmin) {
-      verifyDeviceOwnership(requestingUserId, deviceId);
+      verifyDeviceOwnership(requestingUserId, deviceKey);
       if (technicalName != null || firmware != null || newUserId != null) {
         throw new AccessDeniedException("Non-admin users cannot update technicalName, firmware, or userId");
       }
@@ -279,23 +265,38 @@ public class DeviceService {
     // missing friendly name.
     deviceMapper.updateDeviceFromRequest(req, device);
 
-    evictDeviceCaches(deviceId, Objects.requireNonNullElse(newUserId, originalUserId));
+    evictDeviceCaches(device.getKey(), Objects.requireNonNullElse(newUserId, originalUserId));
     return deviceMapper.deviceToDeviceResponse(device);
   }
 
+  @Transactional
+  public DeviceResponse updateDeviceDetails(String deviceKey, DeviceUpdateRequest req,
+      Long requestingUserId)
+      throws AccessDeniedException {
+    return doUpdateDeviceDetails(deviceKey, req, requestingUserId, null, false);
+  }
+
+  @Transactional
+  public DeviceResponse updateDeviceDetailsAdmin(String deviceKey, AdminDeviceUpdateRequest req)
+      throws AccessDeniedException {
+    return doUpdateDeviceDetails(deviceKey, deviceMapper.adminToNonAdminDeviceUpdateRequest(req),
+        null, req.userId(), true);
+  }
+
+
   /**
-   * Delete a device by its ID (Admin only).
+   * Delete a device by its unique key (Admin only).
    *
-   * @param deviceId the ID of the device to delete
+   * @param deviceKey the key of the device to delete
    * @throws DeviceNotFoundException if the device is not found
    */
   @Transactional
-  public void deleteDeviceById(Long deviceId) {
-    Device device = deviceRepository.findById(deviceId)
-        .orElseThrow(() -> new DeviceNotFoundException(deviceId));
+  public void deleteDeviceByKey(String deviceKey) {
+    Device device = deviceRepository.findByKey(deviceKey)
+        .orElseThrow(() -> new DeviceNotFoundException("Device not found for key: " + deviceKey));
     Long ownerId = device.getUserId();
     deviceRepository.delete(device);
-    evictDeviceCaches(deviceId, ownerId);
+    evictDeviceCaches(deviceKey, ownerId);
   }
 
   /**
@@ -379,32 +380,32 @@ public class DeviceService {
   }
 
   /**
-   * Retrieves a device by its ID.
+   * Retrieves a device by its unique key.
+   * This method uses caching to reduce database load for frequently accessed device data.
    *
-   * @param deviceId the ID of the device to retrieve
+   * @param deviceKey the key of the device to retrieve
    * @return the device entity
    * @throws DeviceNotFoundException if the device is not found
    */
-  public Device getDeviceById(Long deviceId) {
-    return deviceCacheService.getDeviceById(deviceId);
+  public Device getDeviceByKey(String deviceKey) {
+    return deviceCacheService.getDeviceByKey(deviceKey);
   }
 
   /**
    * Regenerates a device's secret.
    *
-   * @param deviceId the ID of the device
+   * @param deviceKey the key of the device for which to regenerate the secret
    * @return the new secret in raw form (not hashed)
    * @throws DeviceNotFoundException if the device is not found
    */
   @Transactional
-  public String regenerateDeviceSecret(Long deviceId) {
-    Device device = deviceRepository.findById(deviceId)
-        .orElseThrow(() -> new DeviceNotFoundException(deviceId));
+  public String regenerateDeviceSecret(String deviceKey) {
+    Device device = requireDeviceByKey(deviceKey);
     String rawSecret = DeviceKeyEncriptionUtil.generateRandomString(32);
     String encryptedSecret = encryptionUtil.encrypt(rawSecret);
     device.setSecret(encryptedSecret);
     deviceRepository.save(device);
-    evictDeviceCaches(deviceId, device.getUserId());
+    evictDeviceCaches(deviceKey, device.getUserId());
     return rawSecret;
   }
 
@@ -433,9 +434,9 @@ public class DeviceService {
         .toList();
   }
 
-  private void evictDeviceCaches(Long deviceId, Long userId) {
-    if (deviceId != null) {
-      Objects.requireNonNull(cacheManager.getCache("deviceByIdCache")).evict(deviceId);
+  private void evictDeviceCaches(String deviceKey, Long userId) {
+    if (deviceKey != null) {
+      Objects.requireNonNull(cacheManager.getCache("deviceByIdCache")).evict(deviceKey);
     }
     if (userId != null) {
       Objects.requireNonNull(cacheManager.getCache("devicesByUserIdCache")).evict(userId);
@@ -445,6 +446,11 @@ public class DeviceService {
 
   private void evictGlobalCache() {
     Objects.requireNonNull(cacheManager.getCache("allDevicesCache")).clear();
+  }
+
+  private Device requireDeviceByKey(String deviceKey) {
+    return deviceRepository.findByKey(deviceKey)
+        .orElseThrow(() -> new DeviceNotFoundException(deviceKey));
   }
 }
 
@@ -459,19 +465,18 @@ class DeviceCacheService {
   private final DeviceRepository deviceRepository;
 
   /**
-   * Retrieves a device by its ID from cache. Cache is invalidated when the device is updated.
+   * Retrieves a device by its key from cache. Cache is invalidated when the device is updated.
    *
-   * @param deviceId the ID of the device to retrieve
+   * @param deviceKey the key of the device to retrieve
    * @return the device if found
    * @throws DeviceNotFoundException if the device is not found
    */
   @Cacheable(
-      value = "deviceByIdCache",
-      key = "#deviceId"
+      value = "deviceByKeyCache",
+      key = "#deviceKey"
   )
-  public Device getDeviceById(Long deviceId) {
-    return deviceRepository.findById(deviceId)
-        .orElseThrow(() -> new DeviceNotFoundException(deviceId));
+  public Device getDeviceByKey(String deviceKey) {
+    return requireDeviceByKey(deviceKey);
   }
 
   /**
@@ -501,4 +506,8 @@ class DeviceCacheService {
     return deviceRepository.findAll(pageable);
   }
 
+  private Device requireDeviceByKey(String deviceKey) {
+    return deviceRepository.findByKey(deviceKey)
+        .orElseThrow(() -> new DeviceNotFoundException(deviceKey));
+  }
 }

@@ -2,12 +2,8 @@ package dev.ivfrost.hydro_backend.devices;
 
 public class DeviceNotFoundException extends RuntimeException {
 
-  public DeviceNotFoundException(Long deviceId) {
-    super("Device with ID " + deviceId + " not found.");
-  }
-
-  public DeviceNotFoundException(String message) {
-    super(message);
+  public DeviceNotFoundException(String deviceKey) {
+    super("Device with key " + deviceKey + " not found.");
   }
 
 }
