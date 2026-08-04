@@ -1,0 +1,134 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Page-1" id="FGDEeb7NN5AkM97soBVb">
+    <mxGraphModel dx="1581" dy="2346" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="3xw-29Z5ciKpj-077KU3-54" edge="1" parent="1" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=-0.025;entryY=0.574;entryDx=0;entryDy=0;entryPerimeter=0;fontFamily=Helvetica;fontSize=12;fontColor=default;startArrow=classic;startFill=1;dashed=1;labelBackgroundColor=none;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="160" y="166.0000000000001" as="sourcePoint" />
+            <mxPoint x="357" y="167.66000000000008" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-58" edge="1" parent="1" source="0pafo3ivaYjKcuBfQNKU-1" style="edgeStyle=entityRelationEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;fontFamily=Helvetica;fontSize=12;fontColor=default;labelBackgroundColor=none;curved=0;" target="3xw-29Z5ciKpj-077KU3-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-63" edge="1" parent="1" source="0pafo3ivaYjKcuBfQNKU-1" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;fontFamily=Helvetica;fontSize=12;fontColor=default;labelBackgroundColor=none;" target="3xw-29Z5ciKpj-077KU3-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="0pafo3ivaYjKcuBfQNKU-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Helvetica;labelBackgroundColor=none;" value="&lt;div&gt;Mobile App (React Native / Expo)&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0, 0, 0), rgb(103, 171, 159));&quot;&gt;hydrolink-app&lt;/span&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="160" width="120" x="40" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-1" parent="1" style="text;html=1;whiteSpace=wrap;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontFamily=Helvetica;fontStyle=1;labelBackgroundColor=none;" value="Hydrolink" vertex="1">
+          <mxGeometry height="30" width="60" x="392.5" y="-30" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-80" edge="1" parent="1" source="3xw-29Z5ciKpj-077KU3-2" style="orthogonalLoop=1;jettySize=auto;html=1;exitX=0.285;exitY=1.009;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;fontFamily=Helvetica;fontSize=12;fontColor=default;labelBackgroundColor=none;exitPerimeter=0;edgeStyle=orthogonalEdgeStyle;" target="3xw-29Z5ciKpj-077KU3-79">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="359.83" y="600" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-83" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.433;entryY=-0.008;entryDx=0;entryDy=0;entryPerimeter=0;" target="3xw-29Z5ciKpj-077KU3-78" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="520" as="sourcePoint" />
+            <mxPoint x="480" y="680" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Helvetica;labelBackgroundColor=none;" value="&lt;div&gt;Spring Boot Backend&lt;/div&gt;&lt;div&gt;(Auth, Profile, Devices, MQTT auth and ACL)&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;i style=&quot;color: light-dark(rgb(0, 0, 0), rgb(185, 224, 165));&quot;&gt;hydrolink-api&lt;/i&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="122" width="280" x="280" y="398" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-66" edge="1" parent="1" source="3xw-29Z5ciKpj-077KU3-3" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.25;exitDx=0;exitDy=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;fontFamily=Helvetica;fontSize=12;fontColor=default;labelBackgroundColor=none;" target="3xw-29Z5ciKpj-077KU3-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-72" edge="1" parent="1" source="3xw-29Z5ciKpj-077KU3-3" style="edgeStyle=entityRelationEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;fontFamily=Helvetica;fontSize=12;fontColor=default;labelBackgroundColor=none;curved=0;" target="3xw-29Z5ciKpj-077KU3-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-75" edge="1" parent="1" source="3xw-29Z5ciKpj-077KU3-3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;fontFamily=Helvetica;fontSize=12;fontColor=default;labelBackgroundColor=none;curved=0;" target="3xw-29Z5ciKpj-077KU3-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Helvetica;fontSize=12;fontStyle=0;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="&lt;div&gt;ESP32 Firmware&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0, 0, 0), rgb(154, 199, 191));&quot;&gt;&lt;span style=&quot;color: light-dark(rgb(0, 0, 0), rgb(213, 232, 212));&quot;&gt;&lt;span style=&quot;color: light-dark(rgb(0, 0, 0), rgb(103, 171, 159));&quot;&gt;&lt;br&gt;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0, 0, 0), rgb(241, 156, 153));&quot;&gt;hydrolink-core&lt;/span&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="160" width="120" x="680" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-74" edge="1" parent="1" source="3xw-29Z5ciKpj-077KU3-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;fontFamily=Helvetica;fontSize=12;fontColor=default;labelBackgroundColor=none;" target="3xw-29Z5ciKpj-077KU3-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-9" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Helvetica;labelBackgroundColor=none;" value="NanoMQ broker" vertex="1">
+          <mxGeometry height="100" width="120" x="360" y="93" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-15" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;align=center;verticalAlign=middle;rounded=0;fontFamily=Helvetica;fontSize=12;labelBackgroundColor=none;fillColor=default;" value="&lt;font style=&quot;font-size: 10px;&quot;&gt;Provision device by providing secret.&amp;nbsp;&lt;font&gt;Returns the Link Code&lt;/font&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="120" x="680" y="315" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-18" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;align=center;verticalAlign=middle;rounded=0;fontFamily=Helvetica;fontSize=12;labelBackgroundColor=none;fillColor=default;" value="&lt;font style=&quot;font-size: 10px;&quot;&gt;Authenticate and subscribe to device&#39;s topics&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="520" y="85.5" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-27" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;align=center;verticalAlign=middle;rounded=0;fontFamily=Helvetica;fontSize=12;labelBackgroundColor=none;fillColor=default;" value="&lt;font style=&quot;font-size: 10px;&quot;&gt;Request JWT token to connect to broker&lt;/font&gt;" vertex="1">
+          <mxGeometry height="45" width="120" x="575" y="277.5" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-13" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;align=center;verticalAlign=middle;rounded=0;fontFamily=Helvetica;fontSize=12;labelBackgroundColor=none;fillColor=default;" value="Verify JWT and check topic access (auth + ACL)" vertex="1">
+          <mxGeometry height="60" width="120" x="360" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-47" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;align=left;verticalAlign=middle;rounded=0;fontFamily=Helvetica;fontSize=12;opacity=60;textOpacity=70;labelBackgroundColor=none;" value="&lt;div align=&quot;left&quot;&gt;* All services are dockerized and hosted on a personal Coolify instance which handles deploy and safely provides configuration and secrets to the services.&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="370" x="40" y="900" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-44" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;align=center;verticalAlign=middle;rounded=0;fontFamily=Helvetica;fontSize=12;labelBackgroundColor=none;fillColor=default;" value="&lt;font style=&quot;font-size: 10px;&quot;&gt;Request user&#39;s MQTT JWT token&lt;/font&gt;" vertex="1">
+          <mxGeometry height="45" width="120" x="160" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-60" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;align=center;verticalAlign=middle;rounded=0;fontFamily=Helvetica;fontSize=12;labelBackgroundColor=none;fillColor=default;" value="&lt;font style=&quot;font-size: 10px;&quot;&gt;Authenticate and subscribe to the user owned devices&#39; topics&lt;/font&gt;" vertex="1">
+          <mxGeometry height="45" width="130" x="191" y="93" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-71" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0.01;entryY=0.555;entryDx=0;entryDy=0;entryPerimeter=0;fontFamily=Helvetica;fontSize=12;fontColor=default;startArrow=classic;startFill=1;dashed=1;labelBackgroundColor=none;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="484" y="168" as="sourcePoint" />
+            <mxPoint x="685.2" y="168.80000000000018" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-65" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;align=center;verticalAlign=middle;rounded=0;fontFamily=Helvetica;fontSize=12;labelBackgroundColor=none;fillColor=default;" value="&lt;font style=&quot;font-size: 10px;&quot;&gt;Receive commands and send telemetry&lt;/font&gt;" vertex="1">
+          <mxGeometry height="45" width="100" x="529" y="145.5" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-55" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;align=center;verticalAlign=middle;rounded=0;fontFamily=Helvetica;fontSize=12;labelBackgroundColor=none;fillColor=default;" value="&lt;font style=&quot;font-size: 10px;&quot;&gt;Send commands and receive telemetry&lt;/font&gt;" vertex="1">
+          <mxGeometry height="45" width="90" x="210" y="142" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-77" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" value="PostgreSQL DB" vertex="1">
+          <mxGeometry height="120" width="90" x="70" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-78" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" value="MinIO blob storage" vertex="1">
+          <mxGeometry height="120" width="90" x="440" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-79" parent="1" style="rhombus;whiteSpace=wrap;html=1;shapeInside=1;" value="Redis Cache" vertex="1">
+          <mxGeometry height="80" width="80" x="160" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-82" edge="1" parent="1" source="3xw-29Z5ciKpj-077KU3-79" style="orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.435;entryY=-0.006;entryDx=0;entryDy=0;entryPerimeter=0;fontFamily=Helvetica;fontSize=12;fontColor=default;labelBackgroundColor=none;edgeStyle=orthogonalEdgeStyle;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="119.19999999999999" y="600" />
+            </Array>
+            <mxPoint x="161" y="600" as="sourcePoint" />
+            <mxPoint x="119.14999999999998" y="719.2800000000002" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-84" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;align=center;verticalAlign=middle;rounded=0;fontFamily=Helvetica;fontSize=12;labelBackgroundColor=none;fillColor=default;" value="Cache-aside reads, eviction on writes" vertex="1">
+          <mxGeometry height="45" width="90" x="260" y="578" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-87" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;align=center;verticalAlign=middle;rounded=0;fillColor=default;" value="Store user and device related upload resource" vertex="1">
+          <mxGeometry height="60" width="120" x="425" y="595" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-90" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;align=center;verticalAlign=middle;rounded=0;fontFamily=Helvetica;fontSize=12;labelBackgroundColor=none;fillColor=default;" value="Cache miss" vertex="1">
+          <mxGeometry height="30" width="120" x="55" y="655" as="geometry" />
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-93" edge="1" parent="1" style="endArrow=classic;html=1;fontFamily=Helvetica;fontSize=12;fontColor=default;labelBackgroundColor=none;entryX=1.039;entryY=0.498;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;" target="3xw-29Z5ciKpj-077KU3-77" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="360" y="779.81" />
+            </Array>
+            <mxPoint x="360" y="520" as="sourcePoint" />
+            <mxPoint x="360" y="650" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="3xw-29Z5ciKpj-077KU3-92" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;align=center;verticalAlign=middle;rounded=0;fontFamily=Helvetica;fontSize=12;labelBackgroundColor=none;fillColor=default;" value="Resource not cached at all" vertex="1">
+          <mxGeometry height="30" width="120" x="300" y="670" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

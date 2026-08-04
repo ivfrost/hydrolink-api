@@ -434,6 +434,7 @@ public class DeviceService {
         .toList();
   }
 
+  // TODO: targeted eviction, not global
   private void evictDeviceCaches(String deviceKey, Long userId) {
     if (deviceKey != null) {
       Objects.requireNonNull(cacheManager.getCache("deviceByIdCache")).evict(deviceKey);

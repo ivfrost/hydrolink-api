@@ -29,7 +29,6 @@ import dev.ivfrost.hydro_backend.users.UsernameTakenException;
 import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

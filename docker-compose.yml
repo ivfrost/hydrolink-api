@@ -27,6 +27,8 @@ services:
     command: redis-server --requirepass ${REDIS_PASSWORD} --port ${REDIS_PORT}
     volumes:
       - cache:/data
+    ports:
+      - "${REDIS_PORT}:${REDIS_PORT}"
     healthcheck:
       test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
       start_period: 30s
