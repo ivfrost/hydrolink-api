@@ -1,8 +1,10 @@
 ## System Architecture
 
-![System overview](diagrams/system-overview.svg)
-
-See [system-overview.drawio](diagrams/system-overview.drawio) to edit.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/hl-system-design-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="diagrams/hl-system-design-light.png">
+  <img alt="System architecture diagram" src="diagrams/hl-system-design-light.png">
+</picture>
 
 ## License
 
