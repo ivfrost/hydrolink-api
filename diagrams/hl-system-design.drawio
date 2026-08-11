@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" scale="1" border="0">
   <diagram name="Page-1" id="FGDEeb7NN5AkM97soBVb">
-    <mxGraphModel dx="1102" dy="872" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" background="light-dark(#FFFFFF,#0D1117)" math="0" shadow="0">
+    <mxGraphModel dx="525" dy="415" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" background="light-dark(#FFFFFF,#0D1117)" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -37,7 +37,7 @@
             <mxPoint x="480" y="680" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="3xw-29Z5ciKpj-077KU3-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Helvetica;labelBackgroundColor=none;curved=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;div&gt;Spring Boot Backend&lt;/div&gt;&lt;div&gt;(Auth, Profile, Devices, MQTT auth and ACL)&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;i style=&quot;color: light-dark(rgb(0, 0, 0), rgb(185, 224, 165));&quot;&gt;hydrolink-api&lt;/i&gt;&lt;/div&gt;" vertex="1">
+        <mxCell id="3xw-29Z5ciKpj-077KU3-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Helvetica;labelBackgroundColor=none;curved=0;fillColor=#dae8fc;strokeColor=light-dark(#6C8EBF,#6C8EBF);strokeWidth=2;" value="&lt;div&gt;Spring Boot Backend&lt;/div&gt;&lt;div&gt;(Auth, Profile, Devices, MQTT auth and ACL)&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;i style=&quot;color: light-dark(rgb(0, 0, 0), rgb(185, 224, 165));&quot;&gt;hydrolink-api&lt;/i&gt;&lt;/div&gt;" vertex="1">
           <mxGeometry height="122" width="280" x="280" y="398" as="geometry" />
         </mxCell>
         <mxCell id="3xw-29Z5ciKpj-077KU3-66" edge="1" parent="1" source="3xw-29Z5ciKpj-077KU3-3" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.25;exitDx=0;exitDy=0;entryX=1.004;entryY=0.34;entryDx=0;entryDy=0;fontFamily=Helvetica;fontSize=12;fontColor=default;labelBackgroundColor=none;curved=0;entryPerimeter=0;" target="3xw-29Z5ciKpj-077KU3-9">
@@ -129,6 +129,15 @@
         </mxCell>
         <mxCell id="l4shbOFqfhgGzS9Nsyrs-11" parent="1" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;rounded=1;fontFamily=Helvetica;fontSize=12;labelBackgroundColor=none;curved=0;fontStyle=0;fillColor=light-dark(#FFFFFF,#0D1117);" value="Link Device via Link Code" vertex="1">
           <mxGeometry height="42" width="121" x="40" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="jNcJERtgUVBbhGHv9IRr-3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=light-dark(#60A917,#97D077);fillColor=light-dark(#FFFFFF,#0D1117);strokeWidth=2;" value="" vertex="1">
+          <mxGeometry height="42" width="130" x="22" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="jNcJERtgUVBbhGHv9IRr-2" parent="1" style="html=1;verticalLabelPosition=bottom;align=center;labelBackgroundColor=default;verticalAlign=top;strokeWidth=2;shadow=0;dashed=0;shape=mxgraph.ios7.icons.location;labelBorderColor=light-dark(#60a917, #9AC7BF);fillColor=none;strokeColor=light-dark(#60a917, #97D077);fontColor=light-dark(#60a917, #97D077);" value="" vertex="1">
+          <mxGeometry height="19.5" width="15.6" x="33.39999999999998" y="71.25" as="geometry" />
+        </mxCell>
+        <mxCell id="jNcJERtgUVBbhGHv9IRr-1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;fontColor=light-dark(#60a917, #97D077);fontSize=16;" value="&lt;font face=&quot;Helvetica&quot;&gt;You&#39;re here&lt;/font&gt;" vertex="1">
+          <mxGeometry height="30" width="100" x="49" y="68" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
