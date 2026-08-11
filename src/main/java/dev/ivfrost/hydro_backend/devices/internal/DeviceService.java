@@ -1,7 +1,13 @@
 package dev.ivfrost.hydro_backend.devices.internal;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import dev.ivfrost.hydro_backend.config.DeviceProperties;
+import dev.ivfrost.hydro_backend.config.MqttGateway;
+import dev.ivfrost.hydro_backend.config.SecretRotatedEvent;
 import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceAuthRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceFetchException;
@@ -20,6 +26,7 @@ import dev.ivfrost.hydro_backend.tokens.DeviceTokenProvider;
 import dev.ivfrost.hydro_backend.tokens.DeviceKeyEncriptionUtil;
 import dev.ivfrost.hydro_backend.tokens.MqttTokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -32,12 +39,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -50,8 +60,18 @@ public class DeviceService {
   private final DeviceKeyEncriptionUtil encryptionUtil;
   private final CacheManager cacheManager;
   private final DeviceMapper deviceMapper;
+  private final ObjectMapper objectMapper;
 
   private final DeviceProperties deviceProperties;
+  private final MqttGateway mqttGateway;
+  private final Cache<String, String> pendingSecretChanges = Caffeine.newBuilder()
+      .expireAfterWrite(Duration.ofMinutes(5))
+      .removalListener((key, value, cause) -> {
+        if (cause == RemovalCause.EXPIRED) {
+          log.warn("Secret rotation timed out for device: {}", key);
+        }
+      })
+      .build();
 
   /**
    * Provisions a new device and generates a secret for ownership verification.
@@ -394,19 +414,96 @@ public class DeviceService {
   /**
    * Regenerates a device's secret.
    *
+   * <p>Rotation is two-phase and requires the device to be reachable:
+   * <ol>
+   *   <li>{@code DEVICE_ONLINE}: the device must be powered on, connected to
+   *       the MQTT broker and subscribed to {@code hydro/{deviceKey}/command}, so
+   *       the {@code SetSecret} command below is actually delivered.</li>
+   *   <li>{@code DEVICE_ACKS}: the device persists the new secret to EEPROM and
+   *       publishes a {@code secret_rotated} status back on
+   *       {@code hydro/{deviceKey}/status}. Only after that ack is received and
+   *       processed (see {@link #confirmSecretRotation}) is the new secret
+   *       written to the database and the pending change cleared.</li>
+   * </ol>
+   *
+   * <p>Until the ack is confirmed the DB keeps the previous secret, so the old
+   * secret continues to authenticate. If the device is offline (or cannot ack),
+   * the staged change is never committed and times out of
+   * {@code pendingSecretChanges} (5 minutes) without taking effect.
+   *
    * @param deviceKey the key of the device for which to regenerate the secret
    * @return the new secret in raw form (not hashed)
    * @throws DeviceNotFoundException if the device is not found
    */
   @Transactional
   public String regenerateDeviceSecret(String deviceKey) {
-    Device device = requireDeviceByKey(deviceKey);
+    requireDeviceByKey(deviceKey);
     String rawSecret = DeviceKeyEncriptionUtil.generateRandomString(32);
-    String encryptedSecret = encryptionUtil.encrypt(rawSecret);
-    device.setSecret(encryptedSecret);
+    pendingSecretChanges.put(deviceKey, rawSecret);
+    log.debug("Regenerated secret for device {}: {}", deviceKey, rawSecret);
+    mqttGateway.sendToMqtt(
+        """
+        {"action":"SetSecret","cause":"Manual","secret":"%s"}
+        """.formatted(rawSecret),
+        "hydro/" + deviceKey + "/command"
+    );
+    log.debug("Awaiting device {} to acknowledge secret change", deviceKey);
+    return rawSecret;
+  }
+
+  /**
+   * Confirms the secret rotation for a device. This method is called after the device acknowledges the secret change.
+   *
+   * <p>The device echoes back the exact secret it persisted (in the ack's
+   * {@code secret} field), and that value is what gets committed. Using the acked
+   * secret rather than the in-memory {@code pendingSecretChanges} cache prevents
+   * overlapping regenerations or cache expiry from committing the wrong value.
+   *
+   * @param deviceKey the key of the device for which the secret rotation is being confirmed
+   * @param ackPayload the acknowledgment payload received from the device
+   */
+  @Transactional
+  public void confirmSecretRotation(String deviceKey, String ackPayload) {
+    log.info("Processing secret rotation ack from device {}: {}", deviceKey, ackPayload);
+    JsonNode ack;
+    try {
+      ack = objectMapper.readTree(ackPayload);
+    } catch (JsonProcessingException e) {
+      log.warn("Malformed secret rotation ack from device {}: {}", deviceKey, ackPayload);
+      return;
+    }
+
+    if (!"ok".equals(ack.path("status").asText())) {
+      log.warn("Device {} reported failed secret write: {}", deviceKey, ackPayload);
+      return;
+    }
+
+    String ackedSecret = ack.path("secret").asText();
+    if (ackedSecret.isEmpty()) {
+      log.warn("Secret rotation ack from device {} did not include a secret", deviceKey);
+      return;
+    }
+
+    // Best-effort diagnostics: a mismatch means the ack corresponds to a
+    // different generation than the currently staged one (overwrite or expiry).
+    String pending = pendingSecretChanges.getIfPresent(deviceKey);
+    if (pending == null || !Objects.equals(pending, ackedSecret)) {
+      log.warn("Secret rotation ack for device {} does not match the staged "
+               + "secret (pending={}, acked={}); committing the acked value",
+               deviceKey, pending, ackedSecret);
+    }
+
+    Device device = requireDeviceByKey(deviceKey);
+    device.setSecret(encryptionUtil.encrypt(ackedSecret));
     deviceRepository.save(device);
     evictDeviceCaches(deviceKey, device.getUserId());
-    return rawSecret;
+    pendingSecretChanges.invalidate(deviceKey);
+    log.debug("Device {} secret rotated successfully", deviceKey);
+  }
+
+  @EventListener
+  public void handleSecretRotated(SecretRotatedEvent event) {
+    confirmSecretRotation(event.getDeviceKey(), event.getAckPayload());
   }
 
   /**
@@ -437,7 +534,7 @@ public class DeviceService {
   // TODO: targeted eviction, not global
   private void evictDeviceCaches(String deviceKey, Long userId) {
     if (deviceKey != null) {
-      Objects.requireNonNull(cacheManager.getCache("deviceByIdCache")).evict(deviceKey);
+      Objects.requireNonNull(cacheManager.getCache("deviceByKeyCache")).evict(deviceKey);
     }
     if (userId != null) {
       Objects.requireNonNull(cacheManager.getCache("devicesByUserIdCache")).evict(userId);

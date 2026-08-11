@@ -22,7 +22,7 @@ public class UserResponse {
   @NotNull
   String email;
 
-  String profilePictureUrl;
+  String imageUrl;
 
   // must be present (not null) but may be empty string
   @NotNull

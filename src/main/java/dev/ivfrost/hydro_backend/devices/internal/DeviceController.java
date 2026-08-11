@@ -293,7 +293,7 @@ public class DeviceController {
   )
   @PostMapping("/devices/{deviceKey}/secret/regenerate")
   public ResponseEntity<ApiResponse<Map<String, String>>> regenerateDeviceSecret(
-      @Parameter(description = "Target device ID", example = "101")
+      @Parameter(description = "Target device key", example = "HYDRO-A8JD3F")
       @PathVariable String deviceKey) {
     String newSecret = deviceService.regenerateDeviceSecret(deviceKey);
     Map<String, String> response = Map.of(
