@@ -48,6 +48,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import dev.ivfrost.hydro_backend.devices.FirmwareVersionComparator;
+import dev.ivfrost.hydro_backend.storage.OTAFileUploadEvent;
+import dev.ivfrost.hydro_backend.storage.OtaUpdateRecord;
+import dev.ivfrost.hydro_backend.storage.OtaUpdateService;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -61,6 +68,7 @@ public class DeviceService {
   private final CacheManager cacheManager;
   private final DeviceMapper deviceMapper;
   private final ObjectMapper objectMapper;
+  private final OtaUpdateService otaUpdateService;
 
   private final DeviceProperties deviceProperties;
   private final MqttGateway mqttGateway;
@@ -505,6 +513,88 @@ public class DeviceService {
   @Transactional
   public void handleSecretRotated(SecretRotatedEvent event) {
     confirmSecretRotation(event.getDeviceKey(), event.getAckPayload());
+  }
+
+  /**
+   * Dispatches the OTA update command to devices matching the update's technical name.
+   *
+   * <p>A fresh presigned URL is minted from the stored object key on every dispatch so
+   * expired URLs don't strand devices. Devices whose firmware is already at least as
+   * new as the published version are skipped (semver-ish comparison — firmware is a
+   * free-form string, not a double).
+   *
+   * <p>Used both by the upload-triggered listener and by the scheduled re-dispatch
+   * that catches devices which were offline when the firmware was first published.
+   *
+   * @param update the persisted OTA update to dispatch
+   */
+  public void dispatchOtaUpdate(OtaUpdateRecord update) {
+    if (update.objectKey() == null) {
+      log.warn("OTA update {} v{} has no object key; nothing to dispatch", update.technicalName(), update.version());
+      return;
+    }
+
+    log.info("Dispatching OTA update: {} v{} objectKey={}", update.technicalName(), update.version(), update.objectKey());
+    String binUrl = otaUpdateService.generatePresignedUrl(update.objectKey());
+
+    // Get all devices with matching technical name and notify them to update firmware
+    List<Device> devices = deviceRepository.findAllByTechnicalName(update.technicalName());
+    if (devices.isEmpty()) {
+      log.info("No devices found with technical name {} for OTA update", update.technicalName());
+      return;
+    }
+
+    devices.forEach(device -> {
+      // If the device is already on the latest firmware, skip it — unless the
+      // upload was marked forceInstall, which overrides the version gate.
+      if (!update.forceInstall()
+          && device.getFirmware() != null
+          && FirmwareVersionComparator.compare(device.getFirmware(), update.version()) >= 0) {
+        log.info("Device version is already up to date ({} >= {}), skipping OTA update for device {}",
+            device.getFirmware(), update.version(), device.getKey());
+        return;
+      }
+      // Announce the update on the per-device topic the mobile app subscribes
+      // to. The ESP firmware only subscribes to .../command, so this does NOT
+      // auto-flash the device. The app shows a native notification; tapping it
+      // publishes the same payload to .../command to actually start the OTA.
+      log.info("Announcing OTA update to device {}", device.getKey());
+      mqttGateway.sendRetainedToMqtt(
+          """
+          {"action":"OTAUpdate","cause":"Manual","binUrl":"%s","version":"%s","sha256":"%s"}
+          """.formatted(binUrl, update.version(), update.sha256()),
+          "hydro/" + device.getKey() + "/announce",
+          true
+      );
+    });
+  }
+
+  /**
+   * Handles a freshly uploaded firmware file. Runs asynchronously after the upload
+   * transaction commits so MQTT fan-out never blocks the upload request thread.
+   */
+  @Async
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  public void handleOTAFileUploaded(OTAFileUploadEvent event) {
+    log.info("OTA file uploaded: {} v{} forceInstall={}",
+        event.getTechnicalName(), event.getFirmwareVersion(), event.isForceInstall());
+    otaUpdateService.getLatestByTechnicalName(event.getTechnicalName())
+        .ifPresentOrElse(
+            this::dispatchOtaUpdate,
+            () -> log.warn("No persisted OTA update found for {}; nothing to dispatch", event.getTechnicalName()));
+  }
+
+  /**
+   * Retrieves the secret for a device by its key. The secret is decrypted before being returned.
+   *
+   * @param deviceKey the key of the device
+   * @return the device's secret (decrypted)
+   * @throws DeviceNotFoundException if the device is not found
+   */
+  public String getSecretByDeviceKey(String deviceKey) {
+    Device device = deviceRepository.findByKey(deviceKey)
+        .orElseThrow(() -> new DeviceNotFoundException("Device not found for key: " + deviceKey));
+    return encryptionUtil.decrypt(device.getSecret());
   }
 
   /**

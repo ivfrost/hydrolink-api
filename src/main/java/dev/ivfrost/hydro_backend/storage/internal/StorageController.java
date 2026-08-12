@@ -3,6 +3,7 @@ package dev.ivfrost.hydro_backend.storage.internal;
 import dev.ivfrost.hydro_backend.ApiResponse;
 import dev.ivfrost.hydro_backend.storage.DownloadedFile;
 import dev.ivfrost.hydro_backend.storage.EmptyFileException;
+import dev.ivfrost.hydro_backend.storage.OtaUpdateService;
 import dev.ivfrost.hydro_backend.storage.UploadResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -38,6 +39,34 @@ import org.springframework.web.multipart.MultipartFile;
 public class StorageController {
 
   private final StorageService storageService;
+  private final OtaUpdateService otaUpdateService;
+
+  @PreAuthorize("hasRole('ADMIN')")
+  @PostMapping(path = "/storage/firmware/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<ApiResponse<UploadResponse>> uploadFirmwareFile(
+      @Parameter(description = "Binary file stream sent from client app", schema = @Schema(type = "string", format = "binary"))
+      @RequestPart("file") MultipartFile file,
+      @Parameter(description = "Technical name of the firmware being uploaded", example = "hydro_firmware_v1")
+      @RequestParam("technicalName") @NotBlank String technicalName,
+      @Parameter(description = "Version of the firmware being uploaded", example = "1.0.0")
+      @RequestParam("version") @NotBlank String version,
+      @Parameter(description = "Force devices to install even when already on this version")
+      @RequestParam(value = "forceInstall", defaultValue = "false") boolean forceInstall) {
+
+    UploadResponse uploadResponse = storageService.uploadFirmwareFile(file, technicalName, version);
+
+    // Persist the update and publish the OTA event inside the same transaction. The
+    // listener only fires after commit, so a failed write never notifies devices.
+    otaUpdateService.recordFirmwareUpload(technicalName, version, forceInstall, uploadResponse);
+
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            HttpStatus.OK,
+            "Firmware file uploaded successfully for " + technicalName + " version " + version,
+            uploadResponse
+        )
+    );
+  }
 
   @Operation(
       summary = "Upload a file for a specific user",

@@ -30,6 +30,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -163,6 +164,17 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiResponse<Void>> handleIOException(IOException ex) {
     return ResponseEntity.internalServerError()
         .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCodes.IO_ERROR, ex.getMessage()));
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceededException(
+      MaxUploadSizeExceededException ex) {
+    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+        .body(ApiResponse.error(
+            HttpStatus.PAYLOAD_TOO_LARGE,
+            ErrorCodes.FILE_UPLOAD_EXCEPTION,
+            "Upload exceeds the maximum allowed size (8MB). Please provide a smaller firmware file."
+        ));
   }
 
   // Handles @Valid on @RequestBody / @RequestPart DTOs

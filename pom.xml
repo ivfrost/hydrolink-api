@@ -139,6 +139,12 @@
       <groupId>com.github.ben-manes.caffeine</groupId>
       <artifactId>caffeine</artifactId>
     </dependency>
+    <!-- Source: https://mvnrepository.com/artifact/org.semver4j/semver4j -->
+    <dependency>
+      <groupId>org.semver4j</groupId>
+      <artifactId>semver4j</artifactId>
+      <version>6.0.0</version>
+    </dependency>
 
     <dependency>
       <artifactId>jackson-core</artifactId>
