@@ -459,11 +459,13 @@ public class DeviceService {
    * secret rather than the in-memory {@code pendingSecretChanges} cache prevents
    * overlapping regenerations or cache expiry from committing the wrong value.
    *
+   * <p>Meant to only be called by the {@link #handleSecretRotated(SecretRotatedEvent)}
+   * event listener, which handles the transaction.</p>
+   *
    * @param deviceKey the key of the device for which the secret rotation is being confirmed
    * @param ackPayload the acknowledgment payload received from the device
    */
-  @Transactional
-  public void confirmSecretRotation(String deviceKey, String ackPayload) {
+  private void confirmSecretRotation(String deviceKey, String ackPayload) {
     log.info("Processing secret rotation ack from device {}: {}", deviceKey, ackPayload);
     JsonNode ack;
     try {
@@ -484,13 +486,11 @@ public class DeviceService {
       return;
     }
 
-    // Best-effort diagnostics: a mismatch means the ack corresponds to a
-    // different generation than the currently staged one (overwrite or expiry).
+    // Ignore ack if device key is not in secret rotation pending cache
     String pending = pendingSecretChanges.getIfPresent(deviceKey);
-    if (pending == null || !Objects.equals(pending, ackedSecret)) {
-      log.warn("Secret rotation ack for device {} does not match the staged "
-               + "secret (pending={}, acked={}); committing the acked value",
-               deviceKey, pending, ackedSecret);
+    if (pending == null) {
+      log.warn("Secret rotation ack for device {} with no pending rotation; ignoring", deviceKey);
+      return;
     }
 
     Device device = requireDeviceByKey(deviceKey);
@@ -502,21 +502,9 @@ public class DeviceService {
   }
 
   @EventListener
+  @Transactional
   public void handleSecretRotated(SecretRotatedEvent event) {
     confirmSecretRotation(event.getDeviceKey(), event.getAckPayload());
-  }
-
-  /**
-   * Retrieves the secret for a device by its key. The secret is decrypted before being returned.
-   *
-   * @param deviceKey the key of the device
-   * @return the device's secret (decrypted)
-   * @throws DeviceNotFoundException if the device is not found
-   */
-  public String getSecretByDeviceKey(String deviceKey) {
-    Device device = deviceRepository.findByKey(deviceKey)
-        .orElseThrow(() -> new DeviceNotFoundException("Device not found for key: " + deviceKey));
-    return encryptionUtil.decrypt(device.getSecret());
   }
 
   /**
