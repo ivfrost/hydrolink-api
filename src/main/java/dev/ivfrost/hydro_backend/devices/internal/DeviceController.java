@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -70,6 +71,40 @@ public class DeviceController {
   }
 
   /**
+   * Device provisioning endpoint.
+   * Expects a Bearer token in the Authorization header for authentication.
+   */
+  @Operation(
+      summary = "Internal device provisioning",
+      description = "Provisions a device using an internal Bearer provisioning token."
+  )
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+      content = @Content(
+          examples = @ExampleObject(
+              name = "InternalDeviceProvisionExample",
+              value = """
+                  {
+                    "firmware": "v2.1.0",
+                    "technicalName": "hydrolink-core-1",
+                    "key": "HYDRO-20AX89",
+                    "macAddress": "00:1A:2C:3D:4E:5F"
+                  }
+                  """,
+              summary = "Example of internal device provisioning payload"
+          )
+      )
+  )
+  @PostMapping("/internal/devices/provision")
+  public ResponseEntity<ApiResponse<DeviceProvisionResponse>> provisionDeviceInternal(
+      @Parameter(description = "Internal bearer provisioning token", example = "Bearer prov_tok_123456789")
+      @RequestHeader("Authorization") @NotBlank String authorizationHeader,
+      @Valid @RequestBody DeviceProvisionRequest req) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(ApiResponse.success(HttpStatus.CREATED, "Device provisioned successfully",
+            deviceService.provisionDevice(req, authorizationHeader)));
+  }
+
+  /**
    * Webhook for MQTT broker ACL authorization.
    * This endpoint is called by the MQTT broker to verify whether a client is authorized
    * to pub/sub to a specific topic.
@@ -100,12 +135,13 @@ public class DeviceController {
   )
   @io.swagger.v3.oas.annotations.parameters.RequestBody(
       content = @Content(
+          schema = @Schema(implementation = DeviceAuthRequest.class),
           examples = @ExampleObject(
               name = "DeviceAuthExample",
               value = """
                   {
-                    "deviceKey": "HYDRO-A8JD3F",
-                    "deviceSecret": "3c375b806be40992a5c199176c498aec"
+                    "key": "HYDRO-A8JD3F",
+                    "secret": "3c375b806be40992a5c199176c498aec"
                   }
                   """,
               summary = "Example of device authentication payload"
@@ -119,39 +155,6 @@ public class DeviceController {
         .body(ApiResponse.success(HttpStatus.OK, "Device MQTT auth token retrieved successfully",
             deviceService.authenticateDevice(req)
         ));
-  }
-
-  /**
-   * Device provisioning endpoint.
-   * Expects a Bearer token in the Authorization header for authentication.
-   */
-  @Operation(
-      summary = "Internal device provisioning",
-      description = "Provisions a device using an internal Bearer provisioning token."
-  )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = @ExampleObject(
-              name = "InternalDeviceProvisionExample",
-              value = """
-                  {
-                    "serialNumber": "HYDRO-20AX89",
-                    "macAddress": "00:1A:2C:3D:4E:5F",
-                    "firmwareVersion": "v2.1.0"
-                  }
-                  """,
-              summary = "Example of internal device provisioning payload"
-          )
-      )
-  )
-  @PostMapping("/internal/devices/provision")
-  public ResponseEntity<ApiResponse<DeviceProvisionResponse>> provisionDeviceInternal(
-      @Parameter(description = "Internal bearer provisioning token", example = "Bearer prov_tok_123456789")
-      @RequestHeader("Authorization") @NotBlank String authorizationHeader,
-      @Valid @RequestBody DeviceProvisionRequest req) {
-    return ResponseEntity.status(HttpStatus.CREATED)
-        .body(ApiResponse.success(HttpStatus.CREATED, "Device provisioned successfully",
-            deviceService.provisionDevice(req, authorizationHeader)));
   }
 
   // ======= ADMIN-ONLY ENDPOINTS =======
