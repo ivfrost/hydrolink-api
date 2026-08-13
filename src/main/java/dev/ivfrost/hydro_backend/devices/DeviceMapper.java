@@ -1,6 +1,7 @@
 package dev.ivfrost.hydro_backend.devices;
 
 import dev.ivfrost.hydro_backend.devices.internal.Device;
+import dev.ivfrost.hydro_backend.devices.internal.TimeWindow;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -24,4 +25,5 @@ public interface DeviceMapper {
 
   @Mapping(target = "userId", ignore = true)
   DeviceUpdateRequest adminToNonAdminDeviceUpdateRequest(AdminDeviceUpdateRequest adminDeviceUpdateRequest);
+
 }

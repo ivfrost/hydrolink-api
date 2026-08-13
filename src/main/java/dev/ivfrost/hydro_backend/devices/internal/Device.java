@@ -72,7 +72,7 @@ public class Device implements Serializable {
   @Column
   private String ip;
 
-  @Column(name = "image_url")
+  @Column(name = "image_url", length = 2048)
   private String imageUrl;
 
   @CreationTimestamp

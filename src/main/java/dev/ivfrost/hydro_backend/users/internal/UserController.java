@@ -30,7 +30,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.Stream;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.core.env.Environment;
@@ -57,7 +57,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Users Module", description = "API endpoints for user management and authentication")
-@AllArgsConstructor
+@RequiredArgsConstructor
 @RestController
 @Validated
 @RequestMapping("/v1")

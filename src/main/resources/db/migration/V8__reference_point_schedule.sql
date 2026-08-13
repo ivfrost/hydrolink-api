@@ -1,0 +1,1 @@
+ALTER TABLE time_window ADD COLUMN linked_reference_point VARCHAR(255);

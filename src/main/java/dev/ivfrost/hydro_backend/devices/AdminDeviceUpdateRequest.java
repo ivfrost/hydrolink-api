@@ -16,7 +16,7 @@ public record AdminDeviceUpdateRequest(
     String locationCoordinates,
     @Size(max = 255)
     String description,
-    @Size(max = 255)
+    @Size(max = 2048)
     String imageUrl,
     Long userId,
     @Positive Long displayOrder

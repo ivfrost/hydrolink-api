@@ -17,7 +17,7 @@ public record DeviceUpdateRequest(
     String locationCoordinates,
     @Size(max = 255)
     String description,
-    @Size(max = 255)
+    @Size(max = 2048)
     String imageUrl,
     @Null // controlled by link/unlink
     Long userId,

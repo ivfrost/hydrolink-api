@@ -22,6 +22,8 @@ public final class ErrorCodes {
   public static final String DEVICE_LINK_FAILED = "DEVICE_LINK_FAILED";
   public static final String DEVICE_FETCH_FAILED = "DEVICE_FETCH_FAILED";
   public static final String DUPLICATE_MAC_ADDRESS = "DUPLICATE_MAC_ADDRESS";
+  public static final String SCHEDULE_NOT_FOUND = "SCHEDULE_NOT_FOUND";
+  public static final String PINS_NOT_PERSISTED = "PINS_NOT_PERSISTED";
 
   // Storage
   public static final String FILE_UPLOAD_EXCEPTION = "FILE_UPLOAD_EXCEPTION";
@@ -29,7 +31,8 @@ public final class ErrorCodes {
 
   // Validation
   public static final String VALIDATION_FAILED = "VALIDATION_FAILED";
-
+  public static final String JSON_PROCESSING_ERROR = "JSON_PROCESSING_ERROR";
+  public static final String JSON_MAPPING_ERROR = "JSON_MAPPING_ERROR";
 
   // Others
   public static final String IO_ERROR = "IO_ERROR";

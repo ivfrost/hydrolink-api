@@ -2,11 +2,15 @@ package dev.ivfrost.hydro_backend.config;
 
 import com.auth0.jwt.exceptions.JWTCreationException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import dev.ivfrost.hydro_backend.ApiResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceFetchException;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkException;
 import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
 import dev.ivfrost.hydro_backend.devices.DuplicateMacAddressException;
+import dev.ivfrost.hydro_backend.devices.PinsNotPersistedException;
+import dev.ivfrost.hydro_backend.devices.ScheduleNotFoundException;
 import dev.ivfrost.hydro_backend.storage.FileDownloadException;
 import dev.ivfrost.hydro_backend.storage.FileUploadException;
 import dev.ivfrost.hydro_backend.tokens.ExpiredVerificationToken;
@@ -175,6 +179,34 @@ public class GlobalExceptionHandler {
             ErrorCodes.FILE_UPLOAD_EXCEPTION,
             "Upload exceeds the maximum allowed size (8MB). Please provide a smaller firmware file."
         ));
+  }
+
+  @ExceptionHandler(JsonProcessingException.class)
+  public ResponseEntity<ApiResponse<Void>> handleJsonProcessingException(
+      JsonProcessingException ex) {
+    return ResponseEntity.badRequest()
+        .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ErrorCodes.JSON_PROCESSING_ERROR, ex.getMessage()));
+  }
+
+  @ExceptionHandler(JsonMappingException.class)
+  public ResponseEntity<ApiResponse<Void>> handleJsonMappingException(
+      JsonMappingException ex) {
+    return ResponseEntity.badRequest()
+        .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ErrorCodes.JSON_MAPPING_ERROR, ex.getMessage()));
+  }
+
+  @ExceptionHandler(ScheduleNotFoundException.class)
+  public ResponseEntity<ApiResponse<Void>> handleScheduleNotFoundException(
+      ScheduleNotFoundException ex) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(ApiResponse.error(HttpStatus.NOT_FOUND, ErrorCodes.SCHEDULE_NOT_FOUND, ex.getMessage()));
+  }
+
+  @ExceptionHandler(PinsNotPersistedException.class)
+  public ResponseEntity<ApiResponse<Void>> handlePinsNotPersistedException(
+      PinsNotPersistedException ex) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(ApiResponse.error(HttpStatus.NOT_FOUND, ErrorCodes.PINS_NOT_PERSISTED, ex.getMessage()));
   }
 
   // Handles @Valid on @RequestBody / @RequestPart DTOs

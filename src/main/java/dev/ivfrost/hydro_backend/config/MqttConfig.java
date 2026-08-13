@@ -134,6 +134,12 @@ public class MqttConfig {
       String event = root.path("event").asText();
       if ("secret_rotated".equals(event)) {
         eventPublisher.publishEvent(new SecretRotatedEvent(deviceKey, payload));
+      } else if ("pin_config".equals(event)) {
+        eventPublisher.publishEvent(new PinConfigEvent(deviceKey, payload));
+      } else if (root.has("stations")) {
+        log.debug("Received station status for deviceKey {}: {}", deviceKey, payload);
+      } else {
+        log.warn("Unrecognized payload shape for deviceKey {}: {}", deviceKey, payload);
       }
     } catch (Exception e) {
       log.error("Error processing status message: {}", payload, e);
