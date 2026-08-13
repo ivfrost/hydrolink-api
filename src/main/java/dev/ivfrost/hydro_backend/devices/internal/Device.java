@@ -55,6 +55,13 @@ public class Device implements Serializable {
   @Column(nullable = false)
   private String firmware;
 
+  /**
+   * Id of the most recent {@code ota_updates} row already dispatched to this device.
+   * Used to avoid re-announcing the same firmware update on every scheduler sweep.
+   */
+  @Column(name = "last_ota_update_id")
+  private Long lastOtaUpdateId;
+
   @Size(max = 40)
   @Column(name = "technical_name", nullable = false)
   private String technicalName;

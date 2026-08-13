@@ -1,0 +1,1 @@
+ALTER TABLE devices ADD COLUMN last_ota_update_id BIGINT;

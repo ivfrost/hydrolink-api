@@ -544,7 +544,15 @@ public class DeviceService {
       return;
     }
 
+    List<Device> toPersist = new ArrayList<>();
     devices.forEach(device -> {
+      // Never re-announce an update this device has already seen. Each publish is a
+      // new ota_updates row with a higher id, so a fresh (re)upload still passes this
+      // gate; only redundant scheduler sweeps over the same row are suppressed.
+      if (device.getLastOtaUpdateId() != null && device.getLastOtaUpdateId() >= update.id()) {
+        log.debug("Update {} already dispatched to device {}; skipping", update.id(), device.getKey());
+        return;
+      }
       // If the device is already on the latest firmware, skip it — unless the
       // upload was marked forceInstall, which overrides the version gate.
       if (!update.forceInstall()
@@ -566,7 +574,14 @@ public class DeviceService {
           "hydro/" + device.getKey() + "/announce",
           true
       );
+      device.setLastOtaUpdateId(update.id());
+      toPersist.add(device);
     });
+
+    if (!toPersist.isEmpty()) {
+      deviceRepository.saveAll(toPersist);
+      toPersist.forEach(device -> evictDeviceCaches(device.getKey(), device.getUserId()));
+    }
   }
 
   /**
