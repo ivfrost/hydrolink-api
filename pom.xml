@@ -48,7 +48,7 @@
       <plugin>
         <artifactId>springdoc-openapi-maven-plugin</artifactId>
         <configuration>
-          <apiDocsUrl>http://localhost:8080/v3/api-docs</apiDocsUrl>
+          <apiDocsUrl>http://localhost:8080/api-docs-json/public</apiDocsUrl>
           <outputDir>${project.build.directory}</outputDir>
           <outputFileName>openapi.json</outputFileName>
         </configuration>

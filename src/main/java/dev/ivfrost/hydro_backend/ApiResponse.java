@@ -1,11 +1,13 @@
 package dev.ivfrost.hydro_backend;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDateTime;
 import org.springframework.http.HttpStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ApiResponse<T>(LocalDateTime timestamp, int status, String error, String code,
                              String message, T details) {
 

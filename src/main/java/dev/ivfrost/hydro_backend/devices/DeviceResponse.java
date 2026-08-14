@@ -21,6 +21,6 @@ public record DeviceResponse(
     @NotNull Instant updatedAt,
     @NotNull Instant linkedAt,
     @NotNull Long userId,
-    @NotNull Long displayOrder) {
+    @NotNull Integer displayOrder) {
 
 }

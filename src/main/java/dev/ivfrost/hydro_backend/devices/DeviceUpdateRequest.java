@@ -21,7 +21,7 @@ public record DeviceUpdateRequest(
     String imageUrl,
     @Null // controlled by link/unlink
     Long userId,
-    @Positive Long displayOrder
+    @Positive Integer displayOrder
 ) {
 
 }

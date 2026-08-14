@@ -10,6 +10,7 @@ import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.MqttAclRequest;
 import dev.ivfrost.hydro_backend.devices.MqttAuthRequest;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
+import dev.ivfrost.hydro_backend.util.PageRequestBuilder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,12 +20,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
-import java.util.List;
 import java.util.Map;
 import lombok.AllArgsConstructor;
-import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -37,6 +37,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Devices Module", description = "API endpoints for device management")
@@ -193,12 +194,18 @@ public class DeviceController {
       description = "Retrieves all devices linked to a specific user by their unique ID."
   )
   @GetMapping("/users/{userId}/devices")
-  public ResponseEntity<ApiResponse<List<DeviceResponse>>> getUserDevicesById(
+  public ResponseEntity<ApiResponse<Page<DeviceResponse>>> getUserDevicesById(
       @Parameter(description = "Target user ID", example = "42")
-      @PathVariable @Positive Long userId) {
+      @PathVariable @Positive Long userId,
+      @Parameter(description = "Page number for pagination (1-based index)", example = "1")
+      @RequestParam(required = false) Integer page,
+      @Parameter(description = "Number of devices per page", example = "10")
+      @RequestParam(required = false) Integer size
+      ) {
+    Pageable pageable = PageRequestBuilder.buildPageRequest(page, size, "createdAt", Direction.DESC);
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "User devices retrieved successfully",
-            deviceService.getDevicesByUserId(userId)));
+            deviceService.getDevicesByUserId(userId, pageable)));
   }
 
   @PreAuthorize("hasRole('ADMIN')")
@@ -208,7 +215,11 @@ public class DeviceController {
   )
   @GetMapping("/devices")
   public ResponseEntity<ApiResponse<Page<DeviceResponse>>> getAllDevices(
-      @ParameterObject Pageable pageable) {
+      @Parameter(description = "Page number for pagination (1-based index)", example = "1")
+      @RequestParam(required = false) Integer page,
+      @Parameter(description = "Number of devices per page", example = "10")
+      @RequestParam(required = false) Integer size) {
+    Pageable pageable = PageRequestBuilder.buildPageRequest(page, size, "createdAt", Direction.DESC);
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "All devices retrieved successfully",
             deviceService.getAllDevices(pageable)));
@@ -274,9 +285,11 @@ public class DeviceController {
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(
       summary = "Get device secret by key (Admin only)",
-      description = "Retrieves the decrypted device secret for a specific device by its key."
+      description = "Retrieves the decrypted device secret for a specific device by its key. "
+          + "Uses POST because exposing credential material through a GET URL makes it more "
+          + "likely to be recorded in proxy/access logs."
   )
-  @GetMapping("/devices/{deviceKey}/secret")
+  @PostMapping("/devices/{deviceKey}/secret")
   public ResponseEntity<ApiResponse<Map<String, String>>> getDeviceSecret(
       @Parameter(description = "Unique device key", example = "HYDRO-AL343K")
       @PathVariable @NotBlank String deviceKey) {

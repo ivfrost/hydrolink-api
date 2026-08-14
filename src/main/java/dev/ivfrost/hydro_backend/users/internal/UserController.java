@@ -15,6 +15,7 @@ import dev.ivfrost.hydro_backend.users.UserRecoveryRequest;
 import dev.ivfrost.hydro_backend.users.UserRegisterRequest;
 import dev.ivfrost.hydro_backend.users.UserResponse;
 import dev.ivfrost.hydro_backend.users.UserUpdateRequest;
+import dev.ivfrost.hydro_backend.util.PageRequestBuilder;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -32,11 +33,11 @@ import java.util.List;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.apache.hc.core5.http.HttpHeaders;
-import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -443,9 +444,27 @@ public class UserController {
   @Hidden
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Retrieve all user profiles (Admin only)")
-  @GetMapping(value = "/users/", params = {"page", "size"})
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+      content = @Content(
+          examples = @ExampleObject(
+              name = "GetFirstPage10UserProfilesExample",
+              value = """
+                  {
+                    "page": 1,
+                    "size": 10
+                  }
+                  """,
+              summary = "Example payload for retrieving the first page of user profiles with 10 profiles per page"
+          )
+      )
+  )
+  @GetMapping(value = "/users/")
   public ResponseEntity<ApiResponse<Page<UserResponse>>> getAllUserProfiles(
-      @ParameterObject Pageable pageable) {
+      @Parameter(description = "Page number for pagination (1-based index)", example = "1")
+      @RequestParam(required = false) Integer page,
+      @Parameter(description = "Number of user profiles per page", example = "10")
+      @RequestParam(required = false) Integer size) {
+    Pageable pageable = PageRequestBuilder.buildPageRequest(page, size, "createdAt", Direction.DESC);
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "User profiles retrieved successfully",
             userService.getAllUserProfiles(pageable)));

@@ -1,2 +1,0 @@
-ALTER TABLE devices
-    ALTER COLUMN image_url TYPE VARCHAR(2048) USING (image_url::VARCHAR(2048));

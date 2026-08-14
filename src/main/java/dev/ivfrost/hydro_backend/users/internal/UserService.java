@@ -1,7 +1,6 @@
 package dev.ivfrost.hydro_backend.users.internal;
 
 import com.auth0.jwt.interfaces.Claim;
-import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkProvider;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceMapper;
@@ -194,9 +193,9 @@ public class UserService {
   }
 
   /**
-   * Retrieves all user profiles (admin only, cached, paginated).
+   * Retrieves all user profiles (admin only, cached, paginated, and sorted descending by creation date).
    *
-   * @param pageable the pagination information
+   * @param pageable the pagination and sorting information
    * @return a page of {@link UserResponse} containing user profile information
    */
   @Cacheable(

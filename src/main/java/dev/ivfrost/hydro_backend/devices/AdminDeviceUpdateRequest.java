@@ -19,7 +19,7 @@ public record AdminDeviceUpdateRequest(
     @Size(max = 2048)
     String imageUrl,
     Long userId,
-    @Positive Long displayOrder
+    @Positive Integer displayOrder
 ) {
 
 }

@@ -53,6 +53,12 @@ services:
       - hydro-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "127.0.0.1", "1883" ]
+      start_period: 15s
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   minio:
     image: minio/minio

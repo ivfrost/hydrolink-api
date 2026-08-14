@@ -4,6 +4,7 @@ import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.UserDeviceProvider;
 import java.util.List;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -17,7 +18,7 @@ class UserDeviceProviderImpl implements UserDeviceProvider {
 
   @Override
   public List<DeviceResponse> getUserDevices(Long userId) {
-    return deviceService.getDevicesByUserId(userId);
+    return deviceService.getDevicesByUserId(userId, Pageable.unpaged()).stream().toList();
   }
 
   @Override

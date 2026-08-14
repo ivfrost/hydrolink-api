@@ -37,8 +37,11 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -46,7 +49,6 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
-import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import dev.ivfrost.hydro_backend.devices.FirmwareVersionComparator;
 import dev.ivfrost.hydro_backend.storage.OTAFileUploadEvent;
@@ -72,7 +74,7 @@ public class DeviceService {
 
   private final DeviceProperties deviceProperties;
   private final MqttGateway mqttGateway;
-  private final Cache<String, String> pendingSecretChanges = Caffeine.newBuilder()
+  private final com.github.benmanes.caffeine.cache.Cache<String, String> pendingSecretChanges = Caffeine.newBuilder()
       .expireAfterWrite(Duration.ofMinutes(5))
       .removalListener((key, value, cause) -> {
         if (cause == RemovalCause.EXPIRED) {
@@ -83,12 +85,17 @@ public class DeviceService {
 
   /**
    * Provisions a new device and generates a secret for ownership verification.
+   * Evicts the global device cache.
+   * Meant to be called by an admin user through the API.
    *
    * @param req the device provision request DTO
    * @return the provisioned device response DTO
    * @throws DuplicateMacAddressException if a device with the same MAC address already exists
    */
   @Transactional
+  @Caching(evict = {
+      @CacheEvict(value = "allDevicesCache", allEntries = true),
+  })
   public DeviceProvisionResponse provisionDevice(DeviceProvisionRequest req) {
 
     if (deviceRepository.existsByMacAddress(req.macAddress())) {
@@ -103,20 +110,23 @@ public class DeviceService {
     device.setSecret(hashed);
     Device saved = deviceRepository.save(device);
 
-    evictGlobalCache();
     // Return device details along with the raw secret
     return deviceMapper.deviceToDeviceProvisionResponse(saved, rawSecret);
   }
 
   /**
    * Provisions a new device and generates a secret for ownership verification.
-   * Meant to be called by post build hook by the esp32 device itself.
+   * Meant to be called by post build hook by the ESP32 device itself.
    *
    * @param req the device provision request DTO
    * @param authorizationHeader the authorization header containing the provisioning token
    * @return the provisioned device response DTO
    */
   @Transactional
+  @Caching(evict = {
+      @CacheEvict(value = "allDevicesCache", allEntries = true),
+      @CacheEvict(value = "deviceByKeyCache", allEntries = true)
+  })
   public DeviceProvisionResponse provisionDevice(DeviceProvisionRequest req, String authorizationHeader) {
     log.debug("authorizationHeader raw = '{}'", authorizationHeader);
     if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
@@ -140,19 +150,20 @@ public class DeviceService {
     // Save device
     Device saved = deviceRepository.upsert(device);
 
-    evictGlobalCache();
     // Return device details along with the raw secret
     return deviceMapper.deviceToDeviceProvisionResponse(saved, rawSecret);
   }
 
   /**
    * Links an unlinked device to a user using the device secret as ownership proof
+   * Evicts the user ID based device cache.
    *
    * @param req the device link request DTO (contains device secret)
    * @return the updated device response DTO after linking
    * @throws DeviceLinkException     if the device is already linked
    * @throws DeviceNotFoundException if the device is not found
    */
+  @CacheEvict(value = "deviceByUserIdCache", key = "#userId")
   @Transactional
   public DeviceResponse linkDevice(DeviceLinkRequest req, Long userId) {
 
@@ -169,18 +180,19 @@ public class DeviceService {
     device.setLinkedAt(Instant.now());
     device.setDisplayOrder(calculateDeviceOrder(userId));
     deviceRepository.save(device);
-    evictDeviceCaches(device.getKey(), userId);
     return deviceMapper.deviceToDeviceResponse(device);
   }
 
   /**
    * Unlinks a device from a user by device key. The device will no longer be associated with the
    * user and will be available for linking by another user or themselves in the future.
+   * Evicts the user ID based device cache.
    *
    * @param deviceKey the key of the device to unlink
    * @throws DeviceNotFoundException if the device is not found
    * @throws IllegalArgumentException if the device does not belong to the user
    */
+  @CacheEvict(value = "deviceByUserIdCache", key = "#userId")
   @Transactional
   public void unlinkDevice(String deviceKey, Long userId) {
     Device device = deviceRepository.findByKey(deviceKey)
@@ -193,7 +205,6 @@ public class DeviceService {
     device.setUserId(null);
     device.setDisplayOrder(0L);
     deviceRepository.save(device);
-    evictDeviceCaches(deviceKey, userId);
   }
 
   /**
@@ -212,28 +223,24 @@ public class DeviceService {
   }
 
   /**
-   * Retrieves devices owned by a specific user, by user ID (Admin only).
+   * Retrieves devices owned by a specific user, by user ID (Admin only, paginated and cached).
    *
    * @param userId the ID of the user whose devices are to be retrieved
    * @return a list of device response DTOs
    * @throws DeviceFetchException if no devices are found for the user
    */
-  public List<DeviceResponse> getDevicesByUserId(Long userId) {
-    List<Device> devices = deviceCacheService.getDevicesByUserId(userId);
-    log.debug("Fetched {} devices for user ID {}", devices.size(), userId);
+  public Page<DeviceResponse> getDevicesByUserId(Long userId, Pageable pageable) {
+    Page<Device> devices = deviceCacheService.getDevicesByUserId(userId, pageable);
+    log.debug("Fetched {} devices for user ID {}", devices.getContent().size(), userId);
 
     if (devices.isEmpty()) {
-      return new ArrayList<>();
+      throw new DeviceFetchException("No devices found in the system for user ID: " + userId);
     }
-    return devices
-        .stream()
-        .map(deviceMapper::deviceToDeviceResponse)
-        .sorted(Comparator.comparing(DeviceResponse::displayOrder))
-        .toList();
+    return devices.map(deviceMapper::deviceToDeviceResponse);
   }
 
   /**
-   * Retrieves all devices provisioned in the system (Admin only, paginated).
+   * Retrieves all devices provisioned in the system (Admin only, paginated and cached).
    *
    * @return a list of all device response DTOs
    * @throws DeviceFetchException if no devices are found
@@ -246,9 +253,10 @@ public class DeviceService {
     return devices.map(deviceMapper::deviceToDeviceResponse);
   }
 
-
   /**
    * Updates fields of a specific device by its ID.
+   * Evicts the device's key based cache, the user ID based cache for both the original and
+   * new user IDs (if changed) and the global device cache.
    *
    * @param deviceKey the key of the device to update
    * @param req the device update request DTO
@@ -293,10 +301,35 @@ public class DeviceService {
     // missing friendly name.
     deviceMapper.updateDeviceFromRequest(req, device);
 
-    evictDeviceCaches(device.getKey(), Objects.requireNonNullElse(newUserId, originalUserId));
+    // Manually evict old owner cache if userId changed
+    if (originalUserId != null && !Objects.equals(originalUserId, device.getUserId())) {
+      Cache userCache = cacheManager.getCache("deviceByUserIdCache");
+      if (userCache != null) {
+        userCache.evict(originalUserId);
+      }
+    }
+
     return deviceMapper.deviceToDeviceResponse(device);
   }
 
+  /**
+   * Updates fields of a specific device by its ID.
+   * Evicts the device's key based cache, the user ID based cache for the requesting user and the
+   * global device cache.
+   *
+   * @param deviceKey the key of the device to update
+   * @param req the device update request DTO
+   * @param requestingUserId the ID of the currently authenticated user making the request
+   * @return the updated device response DTO
+   * @throws DeviceNotFoundException if the device is not found
+   * @throws AccessDeniedException   if the device does not belong to the requesting user,
+   *                                 or if a non-admin attempts to update restricted fields
+   */
+  @Caching(evict = {
+      @CacheEvict(value = "deviceByKeyCache", key = "#deviceKey"),
+      @CacheEvict(value = "deviceByUserIdCache", key = "#requestingUserId"),
+      @CacheEvict(value = "allDevicesCache", allEntries = true)
+  })
   @Transactional
   public DeviceResponse updateDeviceDetails(String deviceKey, DeviceUpdateRequest req,
       Long requestingUserId)
@@ -304,16 +337,35 @@ public class DeviceService {
     return doUpdateDeviceDetails(deviceKey, req, requestingUserId, null, false);
   }
 
+  /**
+   * Updates fields of a specific device by its ID.
+   * Evicts the device's key based cache, the new owner's user ID based cache for the device's owner
+   * and the global device cache.
+   *
+   * @param deviceKey the key of the device to update
+   * @param req the admin device update request DTO
+   * @return the updated device response DTO
+   * @throws DeviceNotFoundException if the device is not found
+   * @throws AccessDeniedException   if the device does not belong to the requesting user,
+   *                                 or if a non-admin attempts to update restricted fields
+   */
+  @Caching(evict = {
+      @CacheEvict(value = "deviceByKeyCache", key = "#deviceKey"),
+      @CacheEvict(value = "deviceByUserIdCache", key = "#req.userId()", condition = "#req.userId() != null"),
+      @CacheEvict(value = "allDevicesCache", allEntries = true)
+  })
   @Transactional
   public DeviceResponse updateDeviceDetailsAdmin(String deviceKey, AdminDeviceUpdateRequest req)
       throws AccessDeniedException {
-    return doUpdateDeviceDetails(deviceKey, deviceMapper.adminToNonAdminDeviceUpdateRequest(req),
+    return doUpdateDeviceDetails(deviceKey,
+        deviceMapper.adminToNonAdminDeviceUpdateRequest(req),
         null, req.userId(), true);
   }
 
-
   /**
    * Delete a device by its unique key (Admin only).
+   * Evicts the device's key based cache, the user ID based cache for the device's owner and the
+   * global device cache.
    *
    * @param deviceKey the key of the device to delete
    * @throws DeviceNotFoundException if the device is not found
@@ -322,19 +374,36 @@ public class DeviceService {
   public void deleteDeviceByKey(String deviceKey) {
     Device device = deviceRepository.findByKey(deviceKey)
         .orElseThrow(() -> new DeviceNotFoundException("Device not found for key: " + deviceKey));
-    Long ownerId = device.getUserId();
+    Long userId = device.getUserId();
     deviceRepository.delete(device);
-    evictDeviceCaches(deviceKey, ownerId);
+
+    // Evict caches manually
+    Cache deviceCache = cacheManager.getCache("deviceByKeyCache");
+    if (deviceCache != null) deviceCache.evict(deviceKey);
+    if (userId != null) {
+      Cache userCache = cacheManager.getCache("deviceByUserIdCache");
+      if (userCache != null) userCache.evict(userId);
+    }
+    Cache allCache = cacheManager.getCache("allDevicesCache");
+    if (allCache != null) allCache.clear();
   }
 
   /**
    * Persists the order of devices for a specific user. The order is determined by the list of
    * device IDs provided. Called when a user hits save and there was a change in the order of their
    * devices in the UI.
+   * Evicts the user ID based device cache, the global device cache and the device key based cache.
    *
    * @param userId the ID of the user whose device order is being persisted
    * @param deviceIds the list of device IDs in the desired order
    */
+  @Caching(
+      evict = {
+          @CacheEvict(value = "deviceByUserIdCache", key = "#userId"),
+          @CacheEvict(value = "allDevicesCache", allEntries = true),
+          @CacheEvict(value = "deviceByKeyCache", allEntries = true)
+      }
+  )
   @Transactional
   public void persistDeviceOrder(Long userId, List<Long> deviceIds) {
     List<Device> userDevices = deviceRepository.findAllById(deviceIds);
@@ -351,7 +420,6 @@ public class DeviceService {
     }
 
     deviceRepository.saveAll(userDevices);
-    evictDeviceCaches(null, userId);
   }
 
   public void verifyMqttConnection(MqttAuthRequest req) throws JWTVerificationException {
@@ -398,7 +466,7 @@ public class DeviceService {
    * @return the next display order
    */
   private long calculateDeviceOrder(Long userId) {
-    List<Device> devices = deviceCacheService.getDevicesByUserId(userId);
+    List<Device> devices = deviceCacheService.getDevicesByUserId(userId, Pageable.unpaged()).getContent();
     return devices.stream()
         .map(Device::getDisplayOrder)
         .filter(Objects::nonNull)
@@ -470,10 +538,13 @@ public class DeviceService {
    * <p>Meant to only be called by the {@link #handleSecretRotated(SecretRotatedEvent)}
    * event listener, which handles the transaction.</p>
    *
+   * <p>Evicts the device's key based cache, the user ID based cache for the device's owner and the
+   * global device cache.</p>
+   *
    * @param deviceKey the key of the device for which the secret rotation is being confirmed
    * @param ackPayload the acknowledgment payload received from the device
    */
-  private void confirmSecretRotation(String deviceKey, String ackPayload) {
+  public void confirmSecretRotation(String deviceKey, String ackPayload) {
     log.info("Processing secret rotation ack from device {}: {}", deviceKey, ackPayload);
     JsonNode ack;
     try {
@@ -504,8 +575,17 @@ public class DeviceService {
     Device device = requireDeviceByKey(deviceKey);
     device.setSecret(encryptionUtil.encrypt(ackedSecret));
     deviceRepository.save(device);
-    evictDeviceCaches(deviceKey, device.getUserId());
     pendingSecretChanges.invalidate(deviceKey);
+
+    // Manual cache eviction
+    Cache deviceCache = cacheManager.getCache("deviceByKeyCache");
+    if (deviceCache != null) deviceCache.evict(deviceKey);
+    if (device.getUserId() != null) {
+      Cache userCache = cacheManager.getCache("deviceByUserIdCache");
+      if (userCache != null) userCache.evict(device.getUserId());
+    }
+    Cache allCache = cacheManager.getCache("allDevicesCache");
+    if (allCache != null) allCache.clear();
     log.debug("Device {} secret rotated successfully", deviceKey);
   }
 
@@ -528,6 +608,7 @@ public class DeviceService {
    *
    * @param update the persisted OTA update to dispatch
    */
+  @Transactional
   public void dispatchOtaUpdate(OtaUpdateRecord update) {
     if (update.objectKey() == null) {
       log.warn("OTA update {} v{} has no object key; nothing to dispatch", update.technicalName(), update.version());
@@ -537,7 +618,7 @@ public class DeviceService {
     log.info("Dispatching OTA update: {} v{} objectKey={}", update.technicalName(), update.version(), update.objectKey());
     String binUrl = otaUpdateService.generatePresignedUrl(update.objectKey());
 
-    // Get all devices with matching technical name and notify them to update firmware
+    // Get all devices with matching technical name
     List<Device> devices = deviceRepository.findAllByTechnicalName(update.technicalName());
     if (devices.isEmpty()) {
       log.info("No devices found with technical name {} for OTA update", update.technicalName());
@@ -545,27 +626,22 @@ public class DeviceService {
     }
 
     List<Device> toPersist = new ArrayList<>();
-    devices.forEach(device -> {
-      // Never re-announce an update this device has already seen. Each publish is a
-      // new ota_updates row with a higher id, so a fresh (re)upload still passes this
-      // gate; only redundant scheduler sweeps over the same row are suppressed.
+    for (Device device : devices) {
+      // Skip if already seen this update
       if (device.getLastOtaUpdateId() != null && device.getLastOtaUpdateId() >= update.id()) {
         log.debug("Update {} already dispatched to device {}; skipping", update.id(), device.getKey());
-        return;
+        continue;
       }
-      // If the device is already on the latest firmware, skip it — unless the
-      // upload was marked forceInstall, which overrides the version gate.
+      // Skip if firmware already up-to-date (unless forceInstall)
       if (!update.forceInstall()
           && device.getFirmware() != null
           && FirmwareVersionComparator.compare(device.getFirmware(), update.version()) >= 0) {
         log.info("Device version is already up to date ({} >= {}), skipping OTA update for device {}",
             device.getFirmware(), update.version(), device.getKey());
-        return;
+        continue;
       }
-      // Announce the update on the per-device topic the mobile app subscribes
-      // to. The ESP firmware only subscribes to .../command, so this does NOT
-      // auto-flash the device. The app shows a native notification; tapping it
-      // publishes the same payload to .../command to actually start the OTA.
+
+      // Announce update via MQTT
       log.info("Announcing OTA update to device {}", device.getKey());
       mqttGateway.sendRetainedToMqtt(
           """
@@ -574,13 +650,50 @@ public class DeviceService {
           "hydro/" + device.getKey() + "/announce",
           true
       );
+
       device.setLastOtaUpdateId(update.id());
       toPersist.add(device);
-    });
+    }
 
-    if (!toPersist.isEmpty()) {
-      deviceRepository.saveAll(toPersist);
-      toPersist.forEach(device -> evictDeviceCaches(device.getKey(), device.getUserId()));
+    if (toPersist.isEmpty()) {
+      log.info("No devices needed OTA update notification.");
+      return;
+    }
+
+    // Save all updated devices
+    deviceRepository.saveAll(toPersist);
+
+    // Evict all affected caches
+    evictDeviceCaches(toPersist);
+  }
+
+  /**
+   * Evicts caches for devices that received an OTA update.
+   * This includes the device's individual cache, the user's device list cache,
+   * and the global admin list cache.
+   */
+  private void evictDeviceCaches(List<Device> updatedDevices) {
+    Cache userCache = cacheManager.getCache("deviceByUserIdCache");
+    Cache deviceCache = cacheManager.getCache("deviceByKeyCache");
+    Cache allDevicesCache = cacheManager.getCache("allDevicesCache");
+
+    // Evict individual device keys
+    if (deviceCache != null) {
+      updatedDevices.forEach(device -> deviceCache.evict(device.getKey()));
+    }
+
+    // Evict user-specific lists
+    if (userCache != null) {
+      updatedDevices.stream()
+          .map(Device::getUserId)
+          .filter(Objects::nonNull)
+          .distinct()
+          .forEach(userCache::evict);
+    }
+
+    // Evict global admin list completely
+    if (allDevicesCache != null) {
+      allDevicesCache.clear();
     }
   }
 
@@ -618,25 +731,10 @@ public class DeviceService {
    * @return the list of MQTT topics
    */
   public List<String> getUserDeviceTopics(Long userId) {
-    List<Device> devices = deviceRepository.findAllByUserId(userId);
+    List<Device> devices = deviceRepository.findAllByUserId(userId, Pageable.unpaged()).getContent();
     return devices.stream()
         .map(device -> "hydro/" + device.getKey() + "/#")
         .toList();
-  }
-
-  // TODO: targeted eviction, not global
-  private void evictDeviceCaches(String deviceKey, Long userId) {
-    if (deviceKey != null) {
-      Objects.requireNonNull(cacheManager.getCache("deviceByKeyCache")).evict(deviceKey);
-    }
-    if (userId != null) {
-      Objects.requireNonNull(cacheManager.getCache("devicesByUserIdCache")).evict(userId);
-    }
-    evictGlobalCache();
-  }
-
-  private void evictGlobalCache() {
-    Objects.requireNonNull(cacheManager.getCache("allDevicesCache")).clear();
   }
 
   private Device requireDeviceByKey(String deviceKey) {
@@ -676,12 +774,9 @@ class DeviceCacheService {
    * @param userId the ID of the user whose devices are to be retrieved
    * @return list of devices owned by the user
    */
-  @Cacheable(
-      value = "devicesByUserIdCache",
-      key = "#userId"
-  )
-  public List<Device> getDevicesByUserId(Long userId) {
-    return deviceRepository.findAllByUserId(userId);
+  @Cacheable(value = "deviceByUserIdCache", key = "#userId + '-' + #pageable")
+  public Page<Device> getDevicesByUserId(Long userId, Pageable pageable) {
+    return deviceRepository.findAllByUserId(userId, pageable);
   }
 
   /**
@@ -689,10 +784,7 @@ class DeviceCacheService {
    *
    * @return list of all devices
    */
-  @Cacheable(
-      value = "allDevicesCache",
-      key = "#pageable.pageNumber + '-' + #pageable.pageSize"
-  )
+  @Cacheable(value = "allDevicesCache", key = "#pageable")
   public Page<Device> getAllDevices(Pageable pageable) {
     return deviceRepository.findAll(pageable);
   }

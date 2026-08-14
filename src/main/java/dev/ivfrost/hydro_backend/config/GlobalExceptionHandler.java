@@ -22,8 +22,6 @@ import dev.ivfrost.hydro_backend.users.UserNotAuthenticatedException;
 import dev.ivfrost.hydro_backend.users.UsernameTakenException;
 import jakarta.validation.ConstraintViolationException;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import org.springframework.security.access.AccessDeniedException;
 import java.util.HashMap;
 import java.util.Map;
