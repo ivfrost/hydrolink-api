@@ -7,13 +7,13 @@ import jakarta.validation.constraints.NotBlank;
 
 public record UserAuthRequest(
 
+    @Schema(example = "admin@hydrolink.io", requiredMode = RequiredMode.REQUIRED)
     @NotBlank
     @Email
-    @Schema(requiredMode = RequiredMode.REQUIRED)
     String email,
 
     @NotBlank
-    @Schema(requiredMode = RequiredMode.REQUIRED)
+    @Schema(example = "secret123", requiredMode = RequiredMode.REQUIRED)
     String password) {
 
 }

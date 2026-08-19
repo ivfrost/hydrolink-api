@@ -1,5 +1,6 @@
 package dev.ivfrost.hydro_backend.devices;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -7,7 +8,11 @@ import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.RuntimeHintsRegistrar;
 
-public record DeviceLinkRequest(@NotBlank @Size(max = 32) String secret) {
+public record DeviceLinkRequest(
+    @Schema(example =  "bc3e9dbdf08d73e760f00249da44dd68", description = "The secret used to link the device to the user account. This secret is generated on device provisioning")
+    @NotBlank
+    @Size(max = 32)
+    String secret) {
 
 }
 

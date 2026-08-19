@@ -10,17 +10,17 @@ import java.util.Optional;
 public interface OtaUpdateService {
 
   /**
-   * Persists a newly uploaded firmware file and publishes the {@link OTAFileUploadEvent}
-   * inside the same transaction. The event is delivered to listeners only after the
-   * transaction commits (see {@code AFTER_COMMIT} transactional event listeners), so a
-   * failed write never triggers a spurious device notification.
+   * Persists a newly uploaded firmware file and publishes the {@link OTAFileUploadEvent} inside the
+   * same transaction. The event is delivered to listeners only after the transaction commits (see
+   * {@code AFTER_COMMIT} transactional event listeners), so a failed write never triggers a
+   * spurious device notification.
    *
    * @param technicalName technical name of the firmware
-   * @param version the published firmware version
-   * @param upload the upload result produced by {@link dev.ivfrost.hydro_backend.storage.internal.StorageService}
-   * @return the persisted update record
+   * @param version       the published firmware version
+   * @param upload        the upload result produced by
+   *                      {@link dev.ivfrost.hydro_backend.storage.internal.StorageService}
    */
-  OtaUpdateRecord recordFirmwareUpload(
+  void recordFirmwareUpload(
       String technicalName, String version, boolean forceInstall, UploadResponse upload);
 
   /**

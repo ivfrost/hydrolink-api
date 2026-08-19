@@ -26,7 +26,7 @@ public class PinConfigService {
 
     for (JsonNode pinNode : pinsArray) {
       int pinNumber = pinNode.path("pin").asInt();
-      PinMode mode = "Output".equalsIgnoreCase(pinNode.path("mode").asText())
+      PinMode mode = "Output".equalsIgnoreCase(pinNode.path("mode").asString())
           ? PinMode.OUTPUT
           : PinMode.INPUT;
 

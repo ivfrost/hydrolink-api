@@ -12,22 +12,22 @@ public record UserRegisterRequest(
     @Email
     @NotNull
     @Size(min = 5, max = 60)
-    @Schema(requiredMode = RequiredMode.REQUIRED)
+    @Schema(example = "new_user@hydrolink.io", requiredMode = RequiredMode.REQUIRED)
     String email,
 
     @NotNull
     @Size(min = 5, max = 20)
-    @Schema(requiredMode = RequiredMode.REQUIRED)
+    @Schema(example = "new_user", requiredMode = RequiredMode.REQUIRED)
     String username,
 
     @NotNull
     @Size(min = 6, max = 40)
-    @Schema(requiredMode = RequiredMode.REQUIRED)
+    @Schema(example = "New User", requiredMode = RequiredMode.REQUIRED)
     String fullName,
 
     @NotNull
     @Size(min = 8, max = 42)
-    @Schema(requiredMode = RequiredMode.REQUIRED)
+    @Schema(example = "secure_password", requiredMode = RequiredMode.REQUIRED)
     String password
 ) {
 

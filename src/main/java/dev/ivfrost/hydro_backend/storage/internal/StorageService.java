@@ -9,7 +9,7 @@ import dev.ivfrost.hydro_backend.storage.UploadResponse;
 import io.minio.GetObjectArgs;
 import io.minio.GetObjectResponse;
 import io.minio.GetPresignedObjectUrlArgs;
-import io.minio.Http;
+import io.minio.Http.Method;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import java.io.ByteArrayInputStream;
@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.util.HexFormat;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.Headers;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -68,7 +69,7 @@ public class StorageService {
     try {
       String presignedUrl = minioClient.getPresignedObjectUrl(
           GetPresignedObjectUrlArgs.builder()
-              .method(Http.Method.GET)
+              .method(Method.GET)
               .bucket(minioProperties.bucketName())
               .object(objectKey)
               .expiry((int) PRESIGNED_URL_EXPIRY_SECONDS)
@@ -89,7 +90,8 @@ public class StorageService {
               .build());
 
       // MinIO stores the content-type from putObject!
-      String contentType = response.headers().get("Content-Type");
+      Headers header = response.headers();
+      String contentType = header.get("Content-Type");
       if (contentType == null || contentType.isEmpty()) {
         contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
       }

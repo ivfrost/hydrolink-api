@@ -21,7 +21,7 @@ public class OtaUpdateServiceImpl implements OtaUpdateService {
 
   @Override
   @Transactional
-  public OtaUpdateRecord recordFirmwareUpload(
+  public void recordFirmwareUpload(
       String technicalName, String version, boolean forceInstall, UploadResponse upload) {
     OtaUpdate saved = otaUpdateRepository.save(OtaUpdate.builder()
         .version(version)
@@ -37,7 +37,7 @@ public class OtaUpdateServiceImpl implements OtaUpdateService {
     eventPublisher.publishEvent(
         new OTAFileUploadEvent(technicalName, version, forceInstall));
 
-    return toRecord(saved);
+    toRecord(saved);
   }
 
   @Override

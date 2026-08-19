@@ -4,9 +4,6 @@ import dev.ivfrost.hydro_backend.ApiResponse;
 import dev.ivfrost.hydro_backend.devices.ScheduleRequest;
 import dev.ivfrost.hydro_backend.devices.ScheduleResponse;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.time.DayOfWeek;
@@ -49,29 +46,6 @@ public class ScheduleController {
   }
 
   @Operation(summary = "Update or create schedule for a specific day", description = "Update an existing schedule or create a new one for a specific device on a given day of the week.")
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      description = "Schedule details to be updated or created",
-      required = true,
-      content = @Content(
-          schema = @Schema(implementation = ScheduleRequest.class),
-          examples = @ExampleObject(
-              value = """
-                  {
-                    "windows": [
-                      {
-                        "startTime": "08:00",
-                        "endTime": "10:00"
-                      },
-                      {
-                        "startTime": "18:00",
-                        "endTime": "20:00"
-                      }
-                    ]
-                  }
-                  """
-          )
-      )
-  )
   @PutMapping("/devices/{deviceKey}/schedules/{dayOfWeek}")
   public ResponseEntity<ApiResponse<ScheduleResponse>> updateSchedule(
       @PathVariable String deviceKey,

@@ -171,9 +171,9 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(MaxUploadSizeExceededException.class)
   public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceededException(
       MaxUploadSizeExceededException ex) {
-    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+    return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
         .body(ApiResponse.error(
-            HttpStatus.PAYLOAD_TOO_LARGE,
+            HttpStatus.CONTENT_TOO_LARGE,
             ErrorCodes.FILE_UPLOAD_EXCEPTION,
             "Upload exceeds the maximum allowed size (8MB). Please provide a smaller firmware file."
         ));

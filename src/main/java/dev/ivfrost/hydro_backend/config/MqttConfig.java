@@ -1,6 +1,5 @@
 package dev.ivfrost.hydro_backend.config;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
@@ -110,7 +109,7 @@ public class MqttConfig {
 
   @ServiceActivator(inputChannel = "mqttErrorChannel")
   public void handleMqttError(Message<?> errorMessage) {
-    log.error("MQTT error: {}", errorMessage.getPayload(), errorMessage.getPayload());
+    log.error("MQTT error: {}", errorMessage.getPayload());
   }
 
   @ServiceActivator(inputChannel = "mqttStatusInputChannel")
@@ -139,7 +138,7 @@ public class MqttConfig {
         return;
       }
       JsonNode root = objectMapper.readTree(payload);
-      String event = root.path("event").asText();
+      String event = root.path("event").asString();
       if ("secret_rotated".equals(event)) {
         eventPublisher.publishEvent(new SecretRotatedEvent(deviceKey, payload));
       } else if ("pin_config".equals(event)) {

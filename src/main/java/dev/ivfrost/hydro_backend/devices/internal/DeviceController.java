@@ -13,9 +13,6 @@ import dev.ivfrost.hydro_backend.tokens.TokenResponse;
 import dev.ivfrost.hydro_backend.util.PageRequestBuilder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -48,6 +45,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class DeviceController {
 
   private final DeviceService deviceService;
+  private static final Map<String, Object> ALLOW_ACL_MAP = Map.of("result", "allow");
+  private static final Map<String, Object> DENY_ACL_MAP = Map.of("result", "deny");
 
   // ======= INTERNAL & DEVICE ENDPOINTS =======
 
@@ -60,14 +59,13 @@ public class DeviceController {
   public ResponseEntity<Map<String, Object>> verifyMqttConnection(
       @Valid @RequestBody MqttAuthRequest req) {
     try {
-      ResponseEntity<Map<String, Object>> allowedResponse = ResponseEntity.ok(Map.of("result", "allow"));
       if ("hydro-api-user".equals(req.username())) {
-        return allowedResponse;
+        return ResponseEntity.ok(ALLOW_ACL_MAP);
       }
       deviceService.verifyMqttConnection(req);
-      return allowedResponse;
+      return ResponseEntity.ok(ALLOW_ACL_MAP);
     } catch (Exception e) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("result", "deny"));
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(DENY_ACL_MAP);
     }
   }
 
@@ -78,22 +76,6 @@ public class DeviceController {
   @Operation(
       summary = "Internal device provisioning",
       description = "Provisions a device using an internal Bearer provisioning token."
-  )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = @ExampleObject(
-              name = "InternalDeviceProvisionExample",
-              value = """
-                  {
-                    "firmware": "v2.1.0",
-                    "technicalName": "hydrolink-core-1",
-                    "key": "HYDRO-20AX89",
-                    "macAddress": "00:1A:2C:3D:4E:5F"
-                  }
-                  """,
-              summary = "Example of internal device provisioning payload"
-          )
-      )
   )
   @PostMapping("/internal/devices/provision")
   public ResponseEntity<ApiResponse<DeviceProvisionResponse>> provisionDeviceInternal(
@@ -117,37 +99,22 @@ public class DeviceController {
       @Valid @RequestBody MqttAclRequest req) {
     // Intercept requests from the API and allow it to bypass ACL checks
     if ("hydro-api-user".equals(req.username())) {
-      return ResponseEntity.ok(Map.of("result", "allow"));
+      return ResponseEntity.ok(ALLOW_ACL_MAP);
     }
     try {
       boolean allowed = deviceService.verifyMqttAcl(req);
       if (allowed) {
-        return ResponseEntity.ok(Map.of("result", "allow"));
+        return ResponseEntity.ok(ALLOW_ACL_MAP);
       }
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("result", "deny"));
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(DENY_ACL_MAP);
     } catch (Exception e) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("result", "deny"));
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(DENY_ACL_MAP);
     }
   }
 
   @Operation(
       summary = "Authenticate device",
       description = "Authenticates a hardware device using its credentials and returns an MQTT JWT token."
-  )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          schema = @Schema(implementation = DeviceAuthRequest.class),
-          examples = @ExampleObject(
-              name = "DeviceAuthExample",
-              value = """
-                  {
-                    "key": "HYDRO-A8JD3F",
-                    "secret": "3c375b806be40992a5c199176c498aec"
-                  }
-                  """,
-              summary = "Example of device authentication payload"
-          )
-      )
   )
   @PostMapping("/internal/devices/auth")
   public ResponseEntity<ApiResponse<TokenResponse>> authenticateDevice(
@@ -164,19 +131,6 @@ public class DeviceController {
   @Operation(
       summary = "Link device to user by user ID (Admin only)",
       description = "Links a device to a specific user by their unique ID using the device's secret as ownership proof."
-  )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = @ExampleObject(
-              name = "DeviceLinkExample",
-              value = """
-                  {
-                    "secret": "e5a0b6840dd5bef62dc8bd1b8431c998"
-                  }
-                  """,
-              summary = "Example of linking a device to a user using secret proof"
-          )
-      )
   )
   @PostMapping("/users/{userId}/devices/link")
   public ResponseEntity<ApiResponse<Void>> linkDeviceById(
@@ -229,21 +183,6 @@ public class DeviceController {
   @Operation(
       summary = "Provision new device (Admin only)",
       description = "Provisions a new device in the system."
-  )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = @ExampleObject(
-              name = "AdminDeviceProvisionExample",
-              value = """
-                  {
-                    "serialNumber": "HYDRO-26AX89",
-                    "macAddress": "00:1A:2C:3D:4E:5F",
-                    "firmwareVersion": "v2.1.0"
-                  }
-                  """,
-              summary = "Example of provisioning a new device via Admin API"
-          )
-      )
   )
   @PostMapping("/devices")
   public ResponseEntity<ApiResponse<DeviceProvisionResponse>> provisionDevice(

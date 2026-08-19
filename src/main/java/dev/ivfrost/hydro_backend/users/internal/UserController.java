@@ -32,12 +32,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
-import org.apache.hc.core5.http.HttpHeaders;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort.Direction;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -66,26 +66,15 @@ public class UserController {
 
   private final UserService userService;
   private final Environment environment;
+  private static final String REFRESH_TOKEN_PATH = "/v1/users/auth/refresh";
+  private static final String AUTH_ACCESS_TOKEN = "AUTH_ACCESS_TOKEN";
+  private static final String AUTH_REFRESH_TOKEN = "AUTH_REFRESH_TOKEN";
 
   // ======= NON-AUTHENTICATED USERS ENDPOINTS =======
 
   @Operation(
       summary = "Authenticate user",
       description = "Authenticates a user and returns the user and array of tokens (access and refresh). The refresh token is also set in a secure HTTP-only cookie for web clients."
-  )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = @ExampleObject(
-              name = "UserAuthExample",
-              value = """
-                  {
-                    "email": "admin@hydro.com",
-                    "password": "admin"
-                  }
-                  """,
-              summary = "Example of a user authentication request"
-          )
-      )
   )
   @PostMapping("/users/auth")
   public ResponseEntity<ApiResponse<AuthResponse>> authenticateUser(
@@ -96,9 +85,9 @@ public class UserController {
       return ResponseEntity.status(HttpStatus.OK)
           .body(ApiResponse.success(HttpStatus.OK, "User authenticated successfully", loginResponse));
     }
-    var accessToken = extractToken(loginResponse.tokens(), "AUTH_ACCESS_TOKEN");
-    var refreshToken = extractToken(loginResponse.tokens(), "AUTH_REFRESH_TOKEN");
-    ResponseCookie refreshTokenCookie = generateRefreshTokenCookie(refreshToken, "/v1/users/auth/refresh");
+    var accessToken = extractToken(loginResponse.tokens(), AUTH_ACCESS_TOKEN);
+    var refreshToken = extractToken(loginResponse.tokens(), AUTH_REFRESH_TOKEN);
+    ResponseCookie refreshTokenCookie = generateRefreshTokenCookie(refreshToken, REFRESH_TOKEN_PATH);
     return ResponseEntity.status(HttpStatus.OK)
         .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString())
         .body(ApiResponse.success(HttpStatus.OK, "User authenticated successfully",
@@ -110,22 +99,6 @@ public class UserController {
       summary = "Register user",
       description = "Registers a user and returns the user and array of recovery codes."
   )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = @ExampleObject(
-              name = "UserRegisterExample",
-              value = """
-                  {
-                    "email": "test_user@hydro.com",
-                    "username": "test_user",
-                    "fullName": "Test User",
-                    "password": "test_user"
-                  }
-                  """,
-              summary = "Example of a user registration request"
-          )
-      )
-  )
   @PostMapping("/users")
   public ResponseEntity<ApiResponse<AuthResponse>> registerUser(
       @RequestHeader(value = "x-client-platform", required = false) String clientPlatform,
@@ -136,8 +109,8 @@ public class UserController {
       return ResponseEntity.status(HttpStatus.CREATED)
           .body(ApiResponse.success(HttpStatus.CREATED, "User registered successfully", registerResponse));
     }
-    var accessToken = extractToken(registerResponse.tokens(), "AUTH_ACCESS_TOKEN");
-    var refreshToken = extractToken(registerResponse.tokens(), "AUTH_REFRESH_TOKEN");
+    var accessToken = extractToken(registerResponse.tokens(), AUTH_ACCESS_TOKEN);
+    var refreshToken = extractToken(registerResponse.tokens(), AUTH_REFRESH_TOKEN);
     var recoveryCodes = registerResponse.tokens().stream()
         .filter(t -> t.type().equals("AUTH_RECOVERY_CODE"))
         .toList();
@@ -209,21 +182,6 @@ public class UserController {
       summary = "Update user's account settings",
       description = "Updates the account settings of the currently authenticated user."
   )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = @ExampleObject(
-              name = "UserUpdateExample",
-              value = """
-                  {
-                    "fullName": "Test User Updated",
-                    "email": "updated_user@hydro.com",
-                    "currentPassword": "current_password"
-                  }
-                  """,
-              summary = "Example of updating account settings"
-          )
-      )
-  )
   @PatchMapping(value = "/me")
   public ResponseEntity<ApiResponse<UserResponse>> updateCurrentUser(
       @Valid @RequestBody UserUpdateRequest userUpdateRequest) {
@@ -247,19 +205,6 @@ public class UserController {
       summary = "Get user auth JWT token",
       description = "Refreshes the JWT tokens for an authenticated user."
   )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = @ExampleObject(
-              name = "RefreshTokenExample",
-              value = """
-                  {
-                    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  }
-                  """,
-              summary = "Example body payload for native/mobile clients"
-          )
-      )
-  )
   @PostMapping("/users/auth/refresh")
   public ResponseEntity<ApiResponse<List<TokenResponse>>> refreshToken(
       @RequestHeader(value = "x-client-platform", required = false) String clientPlatform,
@@ -281,9 +226,9 @@ public class UserController {
       return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Tokens refreshed successfully", tokens));
     }
 
-    var accessToken = extractToken(tokens, "AUTH_ACCESS_TOKEN");
-    var newRefreshToken = extractToken(tokens, "AUTH_REFRESH_TOKEN");
-    ResponseCookie cookie = generateRefreshTokenCookie(newRefreshToken, "/v1/users/auth/refresh");
+    var accessToken = extractToken(tokens, AUTH_ACCESS_TOKEN);
+    var newRefreshToken = extractToken(tokens, AUTH_REFRESH_TOKEN);
+    ResponseCookie cookie = generateRefreshTokenCookie(newRefreshToken, REFRESH_TOKEN_PATH);
     return ResponseEntity.ok()
         .header(HttpHeaders.SET_COOKIE, cookie.toString())
         .body(ApiResponse.success(HttpStatus.OK, "Tokens refreshed successfully", List.of(accessToken)));
@@ -305,19 +250,6 @@ public class UserController {
       summary = "Link device to current user",
       description = "Links a device to the currently authenticated user."
   )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = @ExampleObject(
-              name = "UserDeviceLinkExample",
-              value = """
-                  {
-                    "secret": "46bd52aa0f252f2abdee6842e17270da"
-                  }
-                  """,
-              summary = "Example payload for linking a device"
-          )
-      )
-  )
   @PostMapping("/me/devices/link")
   public ResponseEntity<ApiResponse<DeviceResponse>> linkDeviceToCurrentUser(
       @Valid @RequestBody DeviceLinkRequest req) {
@@ -330,19 +262,6 @@ public class UserController {
       summary = "Unlink device from current user",
       description = "Unlinks a device from the currently authenticated user."
   )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = @ExampleObject(
-              name = "UserDeviceUnlinkExample",
-              value = """
-                  {
-                    "deviceKey": "HYDRO-A7EDS4"
-                  }
-                  """,
-              summary = "Example payload for unlinking a device"
-          )
-      )
-  )
   @DeleteMapping("/me/devices/unlink")
   public ResponseEntity<ApiResponse<Void>> unlinkDeviceFromCurrentUser(
       @Valid @RequestBody DeviceUnlinkRequest req) {
@@ -354,21 +273,6 @@ public class UserController {
   @Operation(
       summary = "Update device information for current user",
       description = "Updates device information for the currently authenticated user."
-  )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = @ExampleObject(
-              name = "UserDeviceUpdateExample",
-              value = """
-                  {
-                    "friendlyName": "Front Garden",
-                    "locationLabel": "Greenhouse 1",
-                    "description": "Primary hydroponic unit for leafy greens"
-                  }
-                  """,
-              summary = "Example payload for updating a user's device details"
-          )
-      )
   )
   @PatchMapping("/me/devices/{deviceKey}")
   public ResponseEntity<ApiResponse<DeviceResponse>> updateDeviceForCurrentUser(
@@ -412,27 +316,6 @@ public class UserController {
       summary = "Register a new user (Admin only)",
       description = "Creates a new user account. Allows setting user roles."
   )
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = @ExampleObject(
-              name = "AdminUserRegisterExample",
-              value = """
-                  {
-                    "userDetails": {
-                      "email": "new_user@hydro.com",
-                      "username": "new_user",
-                      "fullName": "New User",
-                      "password": "secure_password"
-                    },
-                    "roles": [
-                      "ROLE_USER",
-                    ]
-                  }
-                  """,
-              summary = "Example payload for creating a user with custom roles"
-          )
-      )
-  )
   @PostMapping("/users/new")
   public ResponseEntity<ApiResponse<AuthResponse>> registerUsersAdmin(
       @Valid @RequestBody AdminUserRegisterRequest req) {
@@ -444,20 +327,6 @@ public class UserController {
   @Hidden
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Retrieve all user profiles (Admin only)")
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      content = @Content(
-          examples = @ExampleObject(
-              name = "GetFirstPage10UserProfilesExample",
-              value = """
-                  {
-                    "page": 1,
-                    "size": 10
-                  }
-                  """,
-              summary = "Example payload for retrieving the first page of user profiles with 10 profiles per page"
-          )
-      )
-  )
   @GetMapping(value = "/users/")
   public ResponseEntity<ApiResponse<Page<UserResponse>>> getAllUserProfiles(
       @Parameter(description = "Page number for pagination (1-based index)", example = "1")

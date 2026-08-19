@@ -3,7 +3,6 @@ package dev.ivfrost.hydro_backend;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDateTime;
 import org.springframework.http.HttpStatus;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import tools.jackson.databind.ObjectMapper;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)

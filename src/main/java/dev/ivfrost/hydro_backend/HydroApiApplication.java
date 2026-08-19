@@ -14,7 +14,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @ConfigurationPropertiesScan
 public class HydroApiApplication {
 
-  public static void main(String[] args) {
+  static void main(String[] args) {
     SpringApplication.run(HydroApiApplication.class, args);
   }
 

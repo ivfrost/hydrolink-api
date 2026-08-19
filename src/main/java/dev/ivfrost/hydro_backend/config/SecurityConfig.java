@@ -50,7 +50,7 @@ public class SecurityConfig {
 
   @Bean
   @Order(2)
-  public SecurityFilterChain securityFilterChain(final HttpSecurity http, Environment environment) throws Exception {
+  public SecurityFilterChain securityFilterChain(final HttpSecurity http, Environment environment) {
     log.info("Configuring security filter chain...");
     http.csrf(AbstractHttpConfigurer::disable)
         .httpBasic(HttpBasicConfigurer::disable)

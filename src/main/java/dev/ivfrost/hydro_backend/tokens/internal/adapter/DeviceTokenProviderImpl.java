@@ -1,11 +1,9 @@
 package dev.ivfrost.hydro_backend.tokens.internal.adapter;
 
-import com.auth0.jwt.interfaces.Claim;
 import dev.ivfrost.hydro_backend.tokens.DeviceTokenProvider;
 import dev.ivfrost.hydro_backend.tokens.MqttTokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
 import dev.ivfrost.hydro_backend.tokens.internal.TokenService;
-import java.util.Map;
 import org.springframework.stereotype.Service;
 
 @Service
