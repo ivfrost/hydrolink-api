@@ -1,9 +1,6 @@
 package dev.ivfrost.hydro_backend.devices.internal;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import dev.ivfrost.hydro_backend.common.RestResponsePage;
 import dev.ivfrost.hydro_backend.config.DeviceProperties;
@@ -58,6 +55,8 @@ import dev.ivfrost.hydro_backend.storage.OtaUpdateService;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -540,19 +539,14 @@ public class DeviceService {
   public void confirmSecretRotation(String deviceKey, String ackPayload) {
     log.info("Processing secret rotation ack from device {}: {}", deviceKey, ackPayload);
     JsonNode ack;
-    try {
-      ack = objectMapper.readTree(ackPayload);
-    } catch (JsonProcessingException e) {
-      log.warn("Malformed secret rotation ack from device {}: {}", deviceKey, ackPayload);
-      return;
-    }
+    ack = objectMapper.readTree(ackPayload);
 
-    if (!"ok".equals(ack.path("status").asText())) {
+    if (!"ok".equals(ack.path("status").asString())) {
       log.warn("Device {} reported failed secret write: {}", deviceKey, ackPayload);
       return;
     }
 
-    String ackedSecret = ack.path("secret").asText();
+    String ackedSecret = ack.path("secret").asString();
     if (ackedSecret.isEmpty()) {
       log.warn("Secret rotation ack from device {} did not include a secret", deviceKey);
       return;

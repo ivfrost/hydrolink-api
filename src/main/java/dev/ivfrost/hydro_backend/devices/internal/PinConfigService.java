@@ -1,15 +1,15 @@
 package dev.ivfrost.hydro_backend.devices.internal;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.ivfrost.hydro_backend.config.PinConfigEvent;
-import dev.ivfrost.hydro_backend.devices.PinMode;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+import jakarta.transaction.Transactional;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
+import dev.ivfrost.hydro_backend.config.PinConfigEvent;
+import dev.ivfrost.hydro_backend.devices.PinMode;
 
 @RequiredArgsConstructor
 @Slf4j
@@ -45,8 +45,9 @@ public class PinConfigService {
 
   @Transactional
   @EventListener
-  public void handlePinConfigEvent(PinConfigEvent event) throws JsonProcessingException {
-    JsonNode root = objectMapper.readTree(event.getPinsPayload());
+  public void handlePinConfigEvent(PinConfigEvent event) {
+    String payload = event.getPinsPayload();
+    JsonNode root = objectMapper.readTree(payload);
     JsonNode pinsArray = root.path("pins");
     handlePinConfig(event.getDeviceKey(), pinsArray);
   }

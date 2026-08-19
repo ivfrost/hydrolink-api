@@ -4,12 +4,18 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDateTime;
 import org.springframework.http.HttpStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.ObjectMapper;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ApiResponse<T>(LocalDateTime timestamp, int status, String error, String code,
                              String message, T details) {
+
+  private static ObjectMapper objectMapper;
+
+  public static void setObjectMapper(ObjectMapper mapper) {
+    objectMapper = mapper;
+  }
+
 
   public static <T> ApiResponse<T> success(HttpStatus status, String message) {
     return new ApiResponse<>(LocalDateTime.now(), status.value(), null, null, message, null);
@@ -39,15 +45,7 @@ public record ApiResponse<T>(LocalDateTime timestamp, int status, String error, 
         LocalDateTime.now(), status.value(), status.getReasonPhrase(), code, message, details);
   }
 
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-      .registerModule(new JavaTimeModule());
-
   public String toJson() {
-    try {
-      return OBJECT_MAPPER.writeValueAsString(this);
-    } catch (JsonProcessingException e) {
-      // Fallback in case serialization fails
-      return String.format("{\"status\":%d, \"message\":\"%s\"}", status, message);
-    }
+    return objectMapper.writeValueAsString(this);
   }
 }

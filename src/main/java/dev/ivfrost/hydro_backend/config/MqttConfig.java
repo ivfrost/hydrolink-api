@@ -1,7 +1,5 @@
 package dev.ivfrost.hydro_backend.config;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -26,17 +24,27 @@ import org.springframework.messaging.MessageHandler;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.UUID;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
-@RequiredArgsConstructor
 @Configuration
 @EnableIntegration
 public class MqttConfig {
 
   private final MqttProperties mqttProperties;
   private final ApiProperties apiProperties;
-  private final ObjectMapper objectMapper;
   private final ApplicationEventPublisher eventPublisher;
+  private final ObjectMapper objectMapper;
+
+  public MqttConfig(MqttProperties mqttProperties, ApiProperties apiProperties,
+      ApplicationEventPublisher eventPublisher) {
+    this.mqttProperties = mqttProperties;
+    this.apiProperties = apiProperties;
+    this.eventPublisher = eventPublisher;
+    this.objectMapper = new ObjectMapper();
+  }
+
 
   @Bean
   public MqttPahoClientFactory mqttClientFactory() {
