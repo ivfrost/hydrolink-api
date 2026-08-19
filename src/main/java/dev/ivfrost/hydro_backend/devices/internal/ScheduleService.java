@@ -34,9 +34,6 @@ public class ScheduleService {
       deviceRepository.findByKey(deviceKey)
           .orElseThrow(() -> new DeviceNotFoundException(deviceKey));
     List<Schedule> schedules = scheduleRepository.findByDeviceKey(deviceKey);
-    if (schedules.isEmpty()) {
-      throw new ScheduleNotFoundException(deviceKey);
-    }
     return schedules.stream().map(this::enrich).toList();
   }
 

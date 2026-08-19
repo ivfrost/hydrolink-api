@@ -29,7 +29,6 @@ public record ApiResponse<T>(LocalDateTime timestamp, int status, String error, 
         LocalDateTime.now(), status.value(), status.getReasonPhrase(), null, message, details);
   }
 
-  // New: machine-readable code for programmatic handling on clients
   public static <T> ApiResponse<T> error(HttpStatus status, String code, String message) {
     return new ApiResponse<>(
         LocalDateTime.now(), status.value(), status.getReasonPhrase(), code, message, null);

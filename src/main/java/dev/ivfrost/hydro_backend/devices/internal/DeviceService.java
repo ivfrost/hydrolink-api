@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.RemovalCause;
+import dev.ivfrost.hydro_backend.common.RestResponsePage;
 import dev.ivfrost.hydro_backend.config.DeviceProperties;
 import dev.ivfrost.hydro_backend.config.MqttGateway;
 import dev.ivfrost.hydro_backend.config.SecretRotatedEvent;
@@ -230,13 +231,9 @@ public class DeviceService {
    * @throws DeviceFetchException if no devices are found for the user
    */
   public Page<DeviceResponse> getDevicesByUserId(Long userId, Pageable pageable) {
-    Page<Device> devices = deviceCacheService.getDevicesByUserId(userId, pageable);
+    RestResponsePage<DeviceResponse> devices = deviceCacheService.getDevicesByUserId(userId, pageable);
     log.debug("Fetched {} devices for user ID {}", devices.getContent().size(), userId);
-
-    if (devices.isEmpty()) {
-      throw new DeviceFetchException("No devices found in the system for user ID: " + userId);
-    }
-    return devices.map(deviceMapper::deviceToDeviceResponse);
+    return devices;
   }
 
   /**
@@ -246,11 +243,7 @@ public class DeviceService {
    * @throws DeviceFetchException if no devices are found
    */
   public Page<DeviceResponse> getAllDevices(Pageable pageable) {
-    Page<Device> devices = deviceCacheService.getAllDevices(pageable);
-    if (devices.isEmpty()) {
-      throw new DeviceFetchException("No devices found in the system");
-    }
-    return devices.map(deviceMapper::deviceToDeviceResponse);
+    return deviceCacheService.getAllDevices(pageable);
   }
 
   /**
@@ -466,13 +459,13 @@ public class DeviceService {
    * @return the next display order
    */
   private long calculateDeviceOrder(Long userId) {
-    List<Device> devices = deviceCacheService.getDevicesByUserId(userId, Pageable.unpaged()).getContent();
+    RestResponsePage<DeviceResponse> devices = deviceCacheService.getDevicesByUserId(userId, Pageable.unpaged());
     return devices.stream()
-        .map(Device::getDisplayOrder)
+        .map(DeviceResponse::displayOrder)
         .filter(Objects::nonNull)
         .max(Comparator.naturalOrder())
         .map(maxOrder -> maxOrder + 1)
-        .orElse(1L);
+        .orElse(1);
   }
 
   /**
@@ -752,6 +745,7 @@ public class DeviceService {
 class DeviceCacheService {
 
   private final DeviceRepository deviceRepository;
+  private final DeviceMapper deviceMapper;
 
   /**
    * Retrieves a device by its key from cache. Cache is invalidated when the device is updated.
@@ -775,8 +769,12 @@ class DeviceCacheService {
    * @return list of devices owned by the user
    */
   @Cacheable(value = "deviceByUserIdCache", key = "#userId + '-' + #pageable")
-  public Page<Device> getDevicesByUserId(Long userId, Pageable pageable) {
-    return deviceRepository.findAllByUserId(userId, pageable);
+  public RestResponsePage<DeviceResponse> getDevicesByUserId(Long userId, Pageable pageable) {
+    Page<Device> device = deviceRepository.findAllByUserId(userId, pageable);
+    List<DeviceResponse> deviceResponses = device.stream()
+        .map(deviceMapper::deviceToDeviceResponse)
+        .toList();
+    return new RestResponsePage<>(deviceResponses, pageable, device.getTotalElements());
   }
 
   /**
@@ -785,8 +783,12 @@ class DeviceCacheService {
    * @return list of all devices
    */
   @Cacheable(value = "allDevicesCache", key = "#pageable")
-  public Page<Device> getAllDevices(Pageable pageable) {
-    return deviceRepository.findAll(pageable);
+  public RestResponsePage<DeviceResponse> getAllDevices(Pageable pageable) {
+    Page<Device> devices = deviceRepository.findAll(pageable);
+    List<DeviceResponse> deviceResponses = devices.stream()
+        .map(deviceMapper::deviceToDeviceResponse)
+        .toList();
+    return new RestResponsePage<>(deviceResponses, pageable, devices.getTotalElements());
   }
 
   private Device requireDeviceByKey(String deviceKey) {
