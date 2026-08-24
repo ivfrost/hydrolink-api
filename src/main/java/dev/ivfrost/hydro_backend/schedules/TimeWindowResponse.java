@@ -1,4 +1,4 @@
-package dev.ivfrost.hydro_backend.devices;
+package dev.ivfrost.hydro_backend.schedules;
 
 import java.time.LocalTime;
 
@@ -9,6 +9,5 @@ public record TimeWindowResponse(
     LocalTime fixedTime,
     Integer linkedPin,
     Integer offsetMinutes,
-    int durationMinutes,
-    boolean hasConflict
+    int durationMinutes
 ) {}

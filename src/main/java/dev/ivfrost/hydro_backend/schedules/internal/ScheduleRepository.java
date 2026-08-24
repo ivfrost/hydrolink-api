@@ -1,4 +1,4 @@
-package dev.ivfrost.hydro_backend.devices.internal;
+package dev.ivfrost.hydro_backend.schedules.internal;
 
 import java.time.DayOfWeek;
 import java.util.List;

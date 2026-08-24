@@ -1,5 +1,6 @@
-package dev.ivfrost.hydro_backend.devices;
+package dev.ivfrost.hydro_backend.schedules;
 
+import dev.ivfrost.hydro_backend.devices.LinkedReferencePoint;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -9,8 +10,6 @@ import java.time.LocalTime;
     A time window within a schedule. Conditional fields:
     - When startType is FIXED, fixedTime is required.
     - When startType is RELATIVE, linkedPin, linkedReferencePoint and offsetMinutes are required.
-    These conditional requirements are enforced server-side and cannot be expressed as
-    OpenAPI schema constraints.
     """)
 public record TimeWindowRequest(
     @NotNull Integer pin,

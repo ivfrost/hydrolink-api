@@ -1,7 +1,7 @@
-package dev.ivfrost.hydro_backend.devices.internal;
+package dev.ivfrost.hydro_backend.schedules.internal;
 
 import dev.ivfrost.hydro_backend.devices.LinkedReferencePoint;
-import dev.ivfrost.hydro_backend.devices.TimeWindowStartType;
+import dev.ivfrost.hydro_backend.schedules.TimeWindowStartType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

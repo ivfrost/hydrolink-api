@@ -1,8 +1,8 @@
-package dev.ivfrost.hydro_backend.devices.internal;
+package dev.ivfrost.hydro_backend.schedules.internal;
 
 import dev.ivfrost.hydro_backend.ApiResponse;
-import dev.ivfrost.hydro_backend.devices.ScheduleRequest;
-import dev.ivfrost.hydro_backend.devices.ScheduleResponse;
+import dev.ivfrost.hydro_backend.schedules.ScheduleRequest;
+import dev.ivfrost.hydro_backend.schedules.ScheduleResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

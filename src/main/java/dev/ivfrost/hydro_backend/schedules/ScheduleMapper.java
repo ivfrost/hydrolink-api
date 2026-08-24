@@ -1,7 +1,7 @@
-package dev.ivfrost.hydro_backend.devices;
+package dev.ivfrost.hydro_backend.schedules;
 
-import dev.ivfrost.hydro_backend.devices.internal.Schedule;
-import dev.ivfrost.hydro_backend.devices.internal.TimeWindow;
+import dev.ivfrost.hydro_backend.schedules.internal.Schedule;
+import dev.ivfrost.hydro_backend.schedules.internal.TimeWindow;
 import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

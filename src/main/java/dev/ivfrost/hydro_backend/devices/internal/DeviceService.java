@@ -44,6 +44,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
@@ -479,45 +480,57 @@ public class DeviceService {
     return deviceCacheService.getDeviceByKey(deviceKey);
   }
 
-  /**
-   * Regenerates a device's secret.
-   *
-   * <p>Rotation is two-phase and requires the device to be reachable:
-   * <ol>
-   *   <li>{@code DEVICE_ONLINE}: the device must be powered on, connected to
-   *       the MQTT broker and subscribed to {@code hydro/{deviceKey}/command}, so
-   *       the {@code SetSecret} command below is actually delivered.</li>
-   *   <li>{@code DEVICE_ACKS}: the device persists the new secret to EEPROM and
-   *       publishes a {@code secret_rotated} status back on
-   *       {@code hydro/{deviceKey}/status}. Only after that ack is received and
-   *       processed (see {@link #confirmSecretRotation}) is the new secret
-   *       written to the database and the pending change cleared.</li>
-   * </ol>
-   *
-   * <p>Until the ack is confirmed the DB keeps the previous secret, so the old
-   * secret continues to authenticate. If the device is offline (or cannot ack),
-   * the staged change is never committed and times out of
-   * {@code pendingSecretChanges} (5 minutes) without taking effect.
-   *
-   * @param deviceKey the key of the device for which to regenerate the secret
-   * @return the new secret in raw form (not hashed)
-   * @throws DeviceNotFoundException if the device is not found
-   */
-  @Transactional
-  public String regenerateDeviceSecret(String deviceKey) {
-    requireDeviceByKey(deviceKey);
-    String rawSecret = DeviceKeyEncriptionUtil.generateRandomString(32);
-    pendingSecretChanges.put(deviceKey, rawSecret);
-    log.debug("Regenerated secret for device {}: {}", deviceKey, rawSecret);
-    mqttGateway.sendToMqtt(
-        """
-        {"action":"SetSecret","cause":"Manual","secret":"%s"}
-        """.formatted(rawSecret),
-        "hydro/" + deviceKey + "/command"
-    );
-    log.debug("Awaiting device {} to acknowledge secret change", deviceKey);
-    return rawSecret;
-  }
+    /**
+     * Regenerates a device's secret.
+     *
+     * <p>Rotation is two-phase and requires the device to be reachable:
+     * <ol>
+     *   <li>{@code DEVICE_ONLINE}: the device must be powered on, connected to
+     *       the MQTT broker and subscribed to {@code hydro/{deviceKey}/command}, so
+     *       the {@code SetSecret} command below is actually delivered.</li>
+     *   <li>{@code DEVICE_ACKS}: the device persists the new secret to EEPROM and
+     *       publishes a {@code secret_rotated} status back on
+     *       {@code hydro/{deviceKey}/status}. Only after that ack is received and
+     *       processed (see {@link #confirmSecretRotation}) is the new secret
+     *       written to the database and the pending change cleared.</li>
+     * </ol>
+     *
+     * <p>Until the ack is confirmed the DB keeps the previous secret, so the old
+     * secret continues to authenticate. If the device is offline (or cannot ack),
+     * the staged change is never committed and times out of
+     * {@code pendingSecretChanges} (5 minutes) without taking effect.
+     *
+     * <p>Optionally, ack can be skipped (for example, if the device is known to be offline) or
+     * for testing purposes.</p>
+     *
+     * @param deviceKey the key of the device for which to regenerate the secret
+     * @return the new secret in raw form (not hashed)
+     * @throws DeviceNotFoundException if the device is not found
+     */
+    @Transactional
+    public String regenerateDeviceSecret(String deviceKey, boolean requireAck) {
+      requireDeviceByKey(deviceKey);
+      String rawSecret = DeviceKeyEncriptionUtil.generateRandomString(32);
+      log.debug("Regenerated secret for device {}: {}", deviceKey, rawSecret);
+
+      if (requireAck) {
+        pendingSecretChanges.put(deviceKey, rawSecret);
+        mqttGateway.sendToMqtt(
+            """
+            {"action":"SetSecret","cause":"Manual","secret":"%s"}
+            """.formatted(rawSecret),
+            "hydro/" + deviceKey + "/command"
+        );
+        log.debug("Awaiting device {} to acknowledge secret change", deviceKey);
+      } else {
+        Device device = requireDeviceByKey(deviceKey);
+        device.setSecret(encryptionUtil.encrypt(rawSecret));
+        deviceRepository.save(device);
+        pendingSecretChanges.invalidate(deviceKey);
+        log.debug("Device {} secret rotated without ack", deviceKey);
+      }
+      return rawSecret;
+    }
 
   /**
    * Confirms the secret rotation for a device. This method is called after the device acknowledges the secret change.
@@ -724,7 +737,7 @@ public class DeviceService {
         .toList();
   }
 
-  private Device requireDeviceByKey(String deviceKey) {
+  Device requireDeviceByKey(String deviceKey) {
     return deviceRepository.findByKey(deviceKey)
         .orElseThrow(() -> new DeviceNotFoundException(deviceKey));
   }

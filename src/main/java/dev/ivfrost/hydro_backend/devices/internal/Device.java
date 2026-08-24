@@ -66,7 +66,8 @@ public class Device implements Serializable {
   @Column(name = "technical_name", nullable = false)
   private String technicalName;
 
-  @Size(max = 32)
+  // Secret is stored encrypted in the database
+  @Size(max = 255)
   @Column(name = "secret", unique = true)
   private String secret;
 

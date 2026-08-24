@@ -1,12 +1,10 @@
-package dev.ivfrost.hydro_backend.devices.internal;
+package dev.ivfrost.hydro_backend.schedules.internal;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -29,9 +27,8 @@ public class Schedule {
   @Column(name = "day_of_week", nullable = false)
   private DayOfWeek dayOfWeek;
 
-  @ManyToOne
-  @JoinColumn(name = "device_id", nullable = false)
-  private Device device;
+  @Column(name = "device_key", nullable = false)
+  private String deviceKey;
 
   @OneToMany(mappedBy = "schedule", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<TimeWindow> windows;

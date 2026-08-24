@@ -250,12 +250,30 @@ public class DeviceController {
   public ResponseEntity<ApiResponse<Map<String, String>>> regenerateDeviceSecret(
       @Parameter(description = "Target device key", example = "HYDRO-A8JD3F")
       @PathVariable String deviceKey) {
-    String newSecret = deviceService.regenerateDeviceSecret(deviceKey);
+    String newSecret = deviceService.regenerateDeviceSecret(deviceKey, true);
     Map<String, String> response = Map.of(
         "deviceKey", deviceKey,
         "newSecret", newSecret
     );
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device secret regenerated successfully", response));
+  }
+
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(
+      summary = "Regenerate device secret with no ack (Admin only)",
+      description = "Generates a new secret for a device, replacing the old one. Saves the new secret to database without device ack."
+  )
+  @PostMapping("/devices/{deviceKey}/secret/regenerate/no-ack")
+  public ResponseEntity<ApiResponse<Map<String, String>>> regenerateDeviceSecretNoAck(
+      @Parameter(description = "Target device key", example = "HYDRO-A8JD3F")
+      @PathVariable String deviceKey) {
+    String newSecret = deviceService.regenerateDeviceSecret(deviceKey, false);
+    Map<String, String> response = Map.of(
+        "deviceKey", deviceKey,
+        "newSecret", newSecret
+    );
+    return ResponseEntity.status(HttpStatus.OK)
+        .body(ApiResponse.success(HttpStatus.OK, "Device secret regenerated successfully (no ack)", response));
   }
 }

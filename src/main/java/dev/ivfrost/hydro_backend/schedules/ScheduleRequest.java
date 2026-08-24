@@ -1,4 +1,4 @@
-package dev.ivfrost.hydro_backend.devices;
+package dev.ivfrost.hydro_backend.schedules;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
