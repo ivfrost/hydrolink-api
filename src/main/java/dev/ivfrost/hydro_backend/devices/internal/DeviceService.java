@@ -164,7 +164,11 @@ public class DeviceService {
    * @throws DeviceLinkException     if the device is already linked
    * @throws DeviceNotFoundException if the device is not found
    */
-  @CacheEvict(value = "deviceByUserIdCache", key = "#userId")
+  @Caching(evict = {
+      @CacheEvict(value = "deviceByUserIdCache", key = "#userId"),
+      @CacheEvict(value = "deviceByKeyCache", allEntries = true),
+      @CacheEvict(value = "allDevicesCache", allEntries = true)
+  })
   @Transactional
   public DeviceResponse linkDevice(DeviceLinkRequest req, Long userId) {
 
@@ -193,7 +197,11 @@ public class DeviceService {
    * @throws DeviceNotFoundException if the device is not found
    * @throws IllegalArgumentException if the device does not belong to the user
    */
-  @CacheEvict(value = "deviceByUserIdCache", key = "#userId")
+  @Caching(evict = {
+      @CacheEvict(value = "deviceByUserIdCache", key = "#userId"),
+      @CacheEvict(value = "deviceByKeyCache", allEntries = true),
+      @CacheEvict(value = "allDevicesCache", allEntries = true)
+  })
   @Transactional
   public void unlinkDevice(String deviceKey, Long userId) {
     Device device = deviceRepository.findByKey(deviceKey)
