@@ -9,6 +9,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -18,14 +19,14 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
-@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"device_id", "day_of_week"}))
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"device_id", "date"}))
 public class Schedule {
   @Id
   @GeneratedValue
   private Long id;
 
-  @Column(name = "day_of_week", nullable = false)
-  private DayOfWeek dayOfWeek;
+  @Column(name = "date", nullable = false)
+  private LocalDate date;
 
   @Column(name = "device_key", nullable = false)
   private String deviceKey;

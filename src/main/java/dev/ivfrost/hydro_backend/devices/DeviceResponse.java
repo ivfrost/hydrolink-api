@@ -2,6 +2,7 @@ package dev.ivfrost.hydro_backend.devices;
 
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
+import java.util.Set;
 import lombok.Builder;
 
 @Builder
@@ -21,6 +22,8 @@ public record DeviceResponse(
     @NotNull Instant updatedAt,
     @NotNull Instant linkedAt,
     @NotNull Long userId,
-    @NotNull Integer displayOrder) {
+    @NotNull Integer displayOrder,
+    @NotNull Set<PinResponse> pins
+) {
 
 }

@@ -10,6 +10,7 @@ import dev.ivfrost.hydro_backend.devices.DeviceLinkException;
 import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
 import dev.ivfrost.hydro_backend.devices.DuplicateMacAddressException;
 import dev.ivfrost.hydro_backend.devices.PinsNotPersistedException;
+import dev.ivfrost.hydro_backend.devices.PinsNotProvidedException;
 import dev.ivfrost.hydro_backend.devices.ScheduleNotFoundException;
 import dev.ivfrost.hydro_backend.storage.FileDownloadException;
 import dev.ivfrost.hydro_backend.storage.FileUploadException;
@@ -205,6 +206,13 @@ public class GlobalExceptionHandler {
       PinsNotPersistedException ex) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND)
         .body(ApiResponse.error(HttpStatus.NOT_FOUND, ErrorCodes.PINS_NOT_PERSISTED, ex.getMessage()));
+  }
+
+  @ExceptionHandler(PinsNotProvidedException.class)
+  public ResponseEntity<ApiResponse<Void>> handlePinsNotProvidedException(
+      PinsNotProvidedException ex) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ErrorCodes.PINS_NOT_PROVIDED, ex.getMessage()));
   }
 
   // Handles @Valid on @RequestBody / @RequestPart DTOs

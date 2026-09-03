@@ -6,7 +6,7 @@ import dev.ivfrost.hydro_backend.schedules.ScheduleResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -37,30 +37,30 @@ public class ScheduleController {
   }
 
   @Operation(summary = "Get schedule for a specific day", description = "Retrieve the schedule for a specific device on a given day of the week.")
-  @GetMapping("/devices/{deviceKey}/schedules/{dayOfWeek}")
+  @GetMapping("/devices/{deviceKey}/schedules/{date}")
   public ResponseEntity<ApiResponse<ScheduleResponse>> getSchedule(
-      @PathVariable String deviceKey, @PathVariable DayOfWeek dayOfWeek) {
-    ScheduleResponse schedule = scheduleService.getSchedule(deviceKey, dayOfWeek);
+      @PathVariable String deviceKey, @PathVariable LocalDate date) {
+    ScheduleResponse schedule = scheduleService.getSchedule(deviceKey, date);
     return ResponseEntity.ok(
         ApiResponse.success(HttpStatus.OK, "Schedule retrieved successfully", schedule));
   }
 
   @Operation(summary = "Update or create schedule for a specific day", description = "Update an existing schedule or create a new one for a specific device on a given day of the week.")
-  @PutMapping("/devices/{deviceKey}/schedules/{dayOfWeek}")
+  @PutMapping("/devices/{deviceKey}/schedules/{date}")
   public ResponseEntity<ApiResponse<ScheduleResponse>> updateSchedule(
       @PathVariable String deviceKey,
-      @PathVariable DayOfWeek dayOfWeek,
+      @PathVariable LocalDate date,
       @RequestBody @Valid ScheduleRequest request) {
-    ScheduleResponse updated = scheduleService.upsertSchedule(deviceKey, dayOfWeek, request);
+    ScheduleResponse updated = scheduleService.upsertSchedule(deviceKey, date, request);
     return ResponseEntity.ok(
         ApiResponse.success(HttpStatus.OK, "Schedule updated successfully", updated));
   }
 
   @Operation(summary = "Delete schedule for a specific day", description = "Delete the schedule for a specific device on a given day of the week.")
-  @DeleteMapping("/devices/{deviceKey}/schedules/{dayOfWeek}")
+  @DeleteMapping("/devices/{deviceKey}/schedules/{date}")
   public ResponseEntity<ApiResponse<Void>> deleteSchedule(
-      @PathVariable String deviceKey, @PathVariable DayOfWeek dayOfWeek) {
-    scheduleService.deleteSchedule(deviceKey, dayOfWeek);
+      @PathVariable String deviceKey, @PathVariable LocalDate date) {
+    scheduleService.deleteSchedule(deviceKey, date);
     return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Schedule deleted", null));
   }
 }

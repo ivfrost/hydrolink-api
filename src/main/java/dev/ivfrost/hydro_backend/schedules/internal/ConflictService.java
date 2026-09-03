@@ -49,6 +49,10 @@ public class ConflictService {
     Map<Long, ResolvedWindow> result = new HashMap<>();
     for (TimeWindow w : windows) {
       LocalTime start = resolveStart(w, byPin, new HashSet<>());
+      if (start == null) {
+        throw new IllegalArgumentException("Unable to resolve start time for window id " + w.getId() +
+            " (pin=" + w.getPin() + ", startType=" + w.getStartType() + ")");
+      }
       LocalTime end = start.plusMinutes(w.getDurationMinutes());
       result.put(w.getId(), new ResolvedWindow(w.getId(), w.getPin(), start, end));
     }
@@ -57,6 +61,9 @@ public class ConflictService {
 
   private LocalTime resolveStart(TimeWindow w, Map<Integer, TimeWindow> byPin, Set<Integer> visiting) {
     if (w.getStartType() == TimeWindowStartType.FIXED) {
+      if (w.getFixedTime() == null) {
+        throw new IllegalArgumentException("Fixed time is required for window with pin " + w.getPin());
+      }
       return w.getFixedTime();
     }
 
@@ -68,8 +75,10 @@ public class ConflictService {
     if (reference == null) {
       throw new IllegalStateException("Linked pin " + w.getLinkedPin() + " not found in schedule");
     }
-
     LocalTime refStart = resolveStart(reference, byPin, visiting);
+    if (refStart == null) {
+      throw new IllegalStateException("Referenced pin " + w.getLinkedPin() + " could not be resolved");
+    }
 
     LocalTime anchorPoint = (w.getLinkedReferencePoint() == LinkedReferencePoint.START)
         ? refStart

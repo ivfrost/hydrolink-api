@@ -1,3 +1,11 @@
 package dev.ivfrost.hydro_backend.devices;
 
-public record PinResponse(int pinNumber, PinMode mode, String label) {}
+import java.time.Instant;
+import lombok.Builder;
+
+@Builder
+public record PinResponse(
+    Integer pinNumber,
+    PinMode mode,
+    Instant updatedAt
+) {}

@@ -29,8 +29,10 @@ public class EndpointRegistry {
       "/swagger-ui/**",
       "/api-docs",
       "/api-docs/**",
-      "/api-docs-json",
-      "/api-docs-json/**"
+      "/api-docs",
+      "/api-docs/**",
+      "/api-docs.yaml",
+      "/api-docs.yaml/**"
   );
   private static final List<String> APP_AUTHENTICATED = List.of(
       "/v1/users/**",

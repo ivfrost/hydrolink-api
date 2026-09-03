@@ -1,5 +1,13 @@
 package dev.ivfrost.hydro_backend.config;
 
+import dev.ivfrost.hydro_backend.devices.PinMode;
+import dev.ivfrost.hydro_backend.devices.PinResponse;
+import dev.ivfrost.hydro_backend.devices.internal.Pin;
+import dev.ivfrost.hydro_backend.devices.internal.PinConfigService;
+import jakarta.persistence.EntityManager;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
@@ -35,12 +43,14 @@ public class MqttConfig {
   private final ApiProperties apiProperties;
   private final ApplicationEventPublisher eventPublisher;
   private final ObjectMapper objectMapper;
+  private final PinConfigService pinConfigService;
 
   public MqttConfig(MqttProperties mqttProperties, ApiProperties apiProperties,
-      ApplicationEventPublisher eventPublisher) {
+      ApplicationEventPublisher eventPublisher, PinConfigService pinConfigService) {
     this.mqttProperties = mqttProperties;
     this.apiProperties = apiProperties;
     this.eventPublisher = eventPublisher;
+    this.pinConfigService = pinConfigService;
     this.objectMapper = new ObjectMapper();
   }
 
@@ -144,6 +154,7 @@ public class MqttConfig {
       } else if ("pin_config".equals(event)) {
         eventPublisher.publishEvent(new PinConfigEvent(deviceKey, payload));
       } else if (root.has("stations")) {
+        processStationStatus(deviceKey, root);
         log.debug("Received station status for deviceKey {}: {}", deviceKey, payload);
       } else {
         log.warn("Unrecognized payload shape for deviceKey {}: {}", deviceKey, payload);
@@ -178,5 +189,26 @@ public class MqttConfig {
       log.warn("Cannot resolve hostname, using 'unknown'");
       return "unknown";
     }
+  }
+
+  private void processStationStatus(String deviceKey, JsonNode root) {
+    JsonNode stations = root.path("stations");
+    if (!stations.isArray()) {
+      log.warn("No stations array in status message for device {}", deviceKey);
+      return;
+    }
+
+    List<PinResponse> pins = new ArrayList<>();
+    for (JsonNode station : stations) {
+      int pinNumber = station.path("pinNumber").asInt();
+      JsonNode pinNode = station.path("pin");
+      String modeStr = pinNode.path("mode").asText("OUTPUT");
+      PinMode mode = PinMode.valueOf(modeStr.toUpperCase());
+
+      PinResponse pin = PinResponse.builder().pinNumber(pinNumber).mode(mode).updatedAt(Instant.now()).build();
+      pins.add(pin);
+    }
+
+    pinConfigService.replacePinsForDevice(deviceKey, pins);
   }
 }

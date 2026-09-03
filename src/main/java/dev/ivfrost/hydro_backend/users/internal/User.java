@@ -85,6 +85,7 @@ public class User implements Serializable {
   private List<UserRole> roles = new ArrayList<>();
 
   @Column(name = "image_url")
+  @Size(max = 2048)
   private String imageUrl;
 
   @Column(name = "settings", columnDefinition = "text")

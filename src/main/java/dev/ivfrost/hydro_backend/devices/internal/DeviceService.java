@@ -24,6 +24,7 @@ import dev.ivfrost.hydro_backend.tokens.DeviceTokenProvider;
 import dev.ivfrost.hydro_backend.tokens.DeviceKeyEncriptionUtil;
 import dev.ivfrost.hydro_backend.tokens.MqttTokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
+import jakarta.persistence.EntityNotFoundException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -40,9 +42,11 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.cache.concurrent.ConcurrentMapCache;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
@@ -83,6 +87,7 @@ public class DeviceService {
         }
       })
       .build();
+  private final RedisTemplate<String, Object> redisTemplate;
 
   /**
    * Provisions a new device and generates a secret for ownership verification.
@@ -149,10 +154,28 @@ public class DeviceService {
     device.setSecret(hashed);
 
     // Save device
-    Device saved = deviceRepository.upsert(device);
+    deviceRepository.upsert(device);
+
+    // Retrieve the saved device
+    Device saved = deviceRepository.findByKey(device.getKey())
+        .orElseThrow(() -> new EntityNotFoundException("Device not found after upsert"));
 
     // Return device details along with the raw secret
     return deviceMapper.deviceToDeviceProvisionResponse(saved, rawSecret);
+  }
+
+  /**
+   * Helper method to evict all cache entries related to a specific user ID.
+   *
+   * @param userId the user ID whose device cache entries should be evicted
+   */
+  private void evictUserDeviceCache(Long userId) {
+    String pattern = "deviceByUserIdCache::" + userId + "-*";
+    Set<String> keys = redisTemplate.keys(pattern);
+    if (keys != null && !keys.isEmpty()) {
+      redisTemplate.delete(keys);
+      log.debug("Evicted {} cache entries for user {}", keys.size(), userId);
+    }
   }
 
   /**
@@ -165,7 +188,6 @@ public class DeviceService {
    * @throws DeviceNotFoundException if the device is not found
    */
   @Caching(evict = {
-      @CacheEvict(value = "deviceByUserIdCache", key = "#userId"),
       @CacheEvict(value = "deviceByKeyCache", allEntries = true),
       @CacheEvict(value = "allDevicesCache", allEntries = true)
   })
@@ -185,6 +207,7 @@ public class DeviceService {
     device.setLinkedAt(Instant.now());
     device.setDisplayOrder(calculateDeviceOrder(userId));
     deviceRepository.save(device);
+    evictUserDeviceCache(userId);
     return deviceMapper.deviceToDeviceResponse(device);
   }
 
@@ -198,7 +221,6 @@ public class DeviceService {
    * @throws IllegalArgumentException if the device does not belong to the user
    */
   @Caching(evict = {
-      @CacheEvict(value = "deviceByUserIdCache", key = "#userId"),
       @CacheEvict(value = "deviceByKeyCache", allEntries = true),
       @CacheEvict(value = "allDevicesCache", allEntries = true)
   })
@@ -214,6 +236,7 @@ public class DeviceService {
     device.setUserId(null);
     device.setDisplayOrder(0L);
     deviceRepository.save(device);
+    evictUserDeviceCache(userId);
   }
 
   /**
@@ -785,7 +808,7 @@ class DeviceCacheService {
    */
   @Cacheable(value = "deviceByUserIdCache", key = "#userId + '-' + #pageable")
   public RestResponsePage<DeviceResponse> getDevicesByUserId(Long userId, Pageable pageable) {
-    Page<Device> device = deviceRepository.findAllByUserId(userId, pageable);
+    Page<Device> device = deviceRepository.findAllByUserIdWithPins(userId, pageable);
     List<DeviceResponse> deviceResponses = device.stream()
         .map(deviceMapper::deviceToDeviceResponse)
         .toList();
@@ -799,7 +822,7 @@ class DeviceCacheService {
    */
   @Cacheable(value = "allDevicesCache", key = "#pageable")
   public RestResponsePage<DeviceResponse> getAllDevices(Pageable pageable) {
-    Page<Device> devices = deviceRepository.findAll(pageable);
+    Page<Device> devices = deviceRepository.findAllWithPins(pageable);
     List<DeviceResponse> deviceResponses = devices.stream()
         .map(deviceMapper::deviceToDeviceResponse)
         .toList();

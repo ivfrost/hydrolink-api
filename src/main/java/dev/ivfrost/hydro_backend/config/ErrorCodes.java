@@ -24,6 +24,7 @@ public final class ErrorCodes {
   public static final String DUPLICATE_MAC_ADDRESS = "DUPLICATE_MAC_ADDRESS";
   public static final String SCHEDULE_NOT_FOUND = "SCHEDULE_NOT_FOUND";
   public static final String PINS_NOT_PERSISTED = "PINS_NOT_PERSISTED";
+  public static final String PINS_NOT_PROVIDED = "PINS_NOT_PROVIDED";
 
   // Storage
   public static final String FILE_UPLOAD_EXCEPTION = "FILE_UPLOAD_EXCEPTION";

@@ -3,6 +3,7 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
+
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
@@ -228,14 +229,17 @@
           </annotationProcessorPaths>
         </configuration>
       </plugin>
+
       <plugin>
         <groupId>org.graalvm.buildtools</groupId>
         <artifactId>native-maven-plugin</artifactId>
       </plugin>
+
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
+          <jmxPort>9002</jmxPort>   <!-- avoid MinIO's port 9001 -->
           <excludes>
             <exclude>
               <groupId>org.projectlombok</groupId>
@@ -243,24 +247,57 @@
             </exclude>
           </excludes>
         </configuration>
+        <executions>
+          <execution>
+            <id>pre-integration-test</id>
+            <goals>
+              <goal>start</goal>
+            </goals>
+            <configuration>
+              <profiles>
+                <profile>dev</profile>   <!-- enables public OpenAPI endpoints -->
+              </profiles>
+            </configuration>
+          </execution>
+          <execution>
+            <id>post-integration-test</id>
+            <goals>
+              <goal>stop</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
+
       <plugin>
         <groupId>org.springdoc</groupId>
         <artifactId>springdoc-openapi-maven-plugin</artifactId>
         <version>1.5</version>
         <executions>
           <execution>
-            <id>integration-test</id>
+            <id>public</id>
+            <phase>integration-test</phase>
             <goals>
               <goal>generate</goal>
             </goals>
+            <configuration>
+              <apiDocsUrl>http://localhost:8080/api-docs.yaml/public</apiDocsUrl>
+              <outputFileName>openapi-public.yaml</outputFileName>
+              <outputDir>${project.build.directory}/generated-resources</outputDir>
+            </configuration>
+          </execution>
+          <execution>
+            <id>internal</id>
+            <phase>integration-test</phase>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+            <configuration>
+              <apiDocsUrl>http://localhost:8080/api-docs.yaml/internal</apiDocsUrl>
+              <outputFileName>openapi-internal.yaml</outputFileName>
+              <outputDir>${project.build.directory}/generated-resources</outputDir>
+            </configuration>
           </execution>
         </executions>
-        <configuration>
-          <apiDocsUrl>http://localhost:8080/api-docs-json/public</apiDocsUrl>
-          <outputDir>${project.build.directory}</outputDir>
-          <outputFileName>openapi.json</outputFileName>
-        </configuration>
       </plugin>
     </plugins>
   </build>

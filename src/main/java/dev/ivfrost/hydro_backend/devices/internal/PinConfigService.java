@@ -1,7 +1,14 @@
 package dev.ivfrost.hydro_backend.devices.internal;
 
+import dev.ivfrost.hydro_backend.devices.PinMapper;
+import dev.ivfrost.hydro_backend.devices.PinResponse;
+import jakarta.persistence.EntityManager;
+import java.time.Instant;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import jakarta.transaction.Transactional;
@@ -19,6 +26,8 @@ public class PinConfigService {
   private final DeviceRepository deviceRepository;
   private final PinRepository pinRepository;
   private final ObjectMapper objectMapper;
+  private final EntityManager entityManager;
+  private final PinMapper pinMapper;
 
   public void handlePinConfig(String deviceKey, JsonNode pinsArray) {
     Device device = deviceRepository.findByKey(deviceKey)
@@ -50,5 +59,29 @@ public class PinConfigService {
     JsonNode root = objectMapper.readTree(payload);
     JsonNode pinsArray = root.path("pins");
     handlePinConfig(event.getDeviceKey(), pinsArray);
+  }
+
+  @Caching(evict = {
+      @CacheEvict(value = "deviceByKeyCache", key = "#deviceKey"),
+      @CacheEvict(value = "deviceByUserIdCache", allEntries = true),
+      @CacheEvict(value = "allDevicesCache", allEntries = true)
+  })
+  @Transactional
+  public void replacePinsForDevice(String deviceKey, List<PinResponse> pinsResponse) {
+    Device device = deviceRepository.findByKey(deviceKey)
+        .orElseThrow(() -> new IllegalStateException("Device not found: " + deviceKey));
+
+    // Delete existing pins now
+    pinRepository.deleteByDevice(device);
+    entityManager.flush();
+
+    List<Pin> pins = pinMapper.pinResponseToPin(pinsResponse);
+
+    // Set device reference and save new pins
+    for (Pin pin : pins) {
+      pin.setDevice(device);
+      pin.setUpdatedAt(Instant.now());
+    }
+    pinRepository.saveAll(pins);
   }
 }
