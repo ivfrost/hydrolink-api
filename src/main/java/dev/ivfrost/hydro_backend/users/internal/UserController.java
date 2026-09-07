@@ -10,7 +10,6 @@ import dev.ivfrost.hydro_backend.users.AdminUserRegisterRequest;
 import dev.ivfrost.hydro_backend.users.AuthResponse;
 import dev.ivfrost.hydro_backend.users.RefreshTokenRequest;
 import dev.ivfrost.hydro_backend.users.UserAuthRequest;
-import dev.ivfrost.hydro_backend.users.UserMqttResponse;
 import dev.ivfrost.hydro_backend.users.UserRecoveryRequest;
 import dev.ivfrost.hydro_backend.users.UserRegisterRequest;
 import dev.ivfrost.hydro_backend.users.UserResponse;
@@ -232,18 +231,6 @@ public class UserController {
     return ResponseEntity.ok()
         .header(HttpHeaders.SET_COOKIE, cookie.toString())
         .body(ApiResponse.success(HttpStatus.OK, "Tokens refreshed successfully", List.of(accessToken)));
-  }
-
-  @Operation(
-      summary = "Get MQTT auth JWT token",
-      description = "Returns a RS256 signed JWT token for MQTT authentication."
-  )
-  @GetMapping("/users/auth/mqtt")
-  public ResponseEntity<ApiResponse<UserMqttResponse>> getMqttAuthToken() {
-    return ResponseEntity.status(HttpStatus.OK)
-        .body(ApiResponse.success(HttpStatus.OK, "MQTT auth token retrieved successfully",
-            userService.getMqttAuthToken()
-        ));
   }
 
   @Operation(

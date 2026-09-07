@@ -8,10 +8,8 @@ import org.springframework.boot.convert.DurationUnit;
 @ConfigurationProperties(prefix = "user")
 public record UserProperties(
     String jwtSecret,
-    String mqttTokenPrivateKey,
     String recoverySecret,
     String tokenIssuer,
     @DurationUnit(ChronoUnit.MILLIS) Duration accessTokenExpiration,
-    @DurationUnit(ChronoUnit.MILLIS) Duration refreshTokenExpiration,
-    @DurationUnit(ChronoUnit.MILLIS) Duration mqttTokenExpiration
+    @DurationUnit(ChronoUnit.MILLIS) Duration refreshTokenExpiration
 ) {}

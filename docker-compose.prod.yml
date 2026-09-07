@@ -11,8 +11,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      nanomq:
-        condition: service_healthy
       minio:
         condition: service_healthy
     environment:
@@ -21,23 +19,15 @@ services:
       # User secrets
       USER_JWT_SECRET: ${USER_JWT_SECRET:-${SERVICE_HEX_32_1}}
       USER_RECOVERY_SECRET: ${USER_RECOVERY_SECRET:-${SERVICE_HEX_32_2}}
-      USER_MQTT_TOKEN_PRIVATE_KEY: ${USER_MQTT_TOKEN_PRIVATE_KEY:?}
 
       # Device secrets
       DEVICE_KEY_SECRET: ${DEVICE_KEY_SECRET:-${SERVICE_HEX_32_3}}
       DEVICE_PROVISIONING_SECRET: ${DEVICE_PROVISIONING_SECRET:-${SERVICE_HEX_32_11}}
 
-      # MQTT
-      MQTT_BROKER_URL: ${MQTT_BROKER_URL:-tcp://nanomq:1883}
+      # User auth
       USER_TOKEN_ISSUER: ${USER_TOKEN_ISSUER:-hydro-api}
       USER_ACCESS_TOKEN_EXPIRATION: ${USER_ACCESS_TOKEN_EXPIRATION:-900000}
       USER_REFRESH_TOKEN_EXPIRATION: ${USER_REFRESH_TOKEN_EXPIRATION:-2592000000}
-      USER_MQTT_TOKEN_EXPIRATION: ${USER_MQTT_TOKEN_EXPIRATION:-600000}
-
-      # API MQTT client
-      API_MQTT_CLIENT_ID: ${API_MQTT_CLIENT_ID:-hydro-api}
-      API_MQTT_USERNAME: ${API_MQTT_USERNAME:-hydro-api-user}
-      API_MQTT_PASSWORD: ${API_MQTT_PASSWORD:-${SERVICE_HEX_32_8}}
 
       # Database
       DB_URL: ${DB_URL:-jdbc:postgresql://postgres:5432/hydrodb-stage}
@@ -106,27 +96,6 @@ services:
       hydro-network:
         aliases:
           - redis
-
-  nanomq:
-    build:
-      context: .
-      dockerfile: Dockerfile.nanomq
-    environment:
-      NANOMQ_CONF_PATH: /etc/nanomq/nanomq.conf
-    volumes:
-      - /data/coolify/proxy/certs/mqtt.hydro.netoasis.dedyn.io:/etc/nanomq/certs
-    restart: on-failure:3
-    ports:
-      - "8883:8883"
-      - "8083:8083"
-    healthcheck:
-      test: [ "CMD", "nc", "-z", "127.0.0.1", "1883" ]
-      start_period: 15s
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    networks:
-      - hydro-network
 
   minio:
     image: minio/minio

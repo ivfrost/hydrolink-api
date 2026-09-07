@@ -1,6 +1,5 @@
 package dev.ivfrost.hydro_backend.devices.internal;
 
-import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import dev.ivfrost.hydro_backend.common.RestResponsePage;
 import dev.ivfrost.hydro_backend.config.DeviceProperties;
@@ -17,7 +16,6 @@ import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DuplicateMacAddressException;
-import dev.ivfrost.hydro_backend.tokens.DeviceTokenProvider;
 import dev.ivfrost.hydro_backend.tokens.DeviceKeyEncriptionUtil;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.Duration;
@@ -63,7 +61,6 @@ public class DeviceService {
 
   private final DeviceRepository deviceRepository;
   private final DeviceCacheService deviceCacheService;
-  private final DeviceTokenProvider deviceTokenProvider;
   private final DeviceKeyEncriptionUtil encryptionUtil;
   private final CacheManager cacheManager;
   private final DeviceMapper deviceMapper;

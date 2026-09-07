@@ -9,14 +9,8 @@ import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import dev.ivfrost.hydro_backend.config.UserProperties;
-import java.security.KeyFactory;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.interfaces.RSAPublicKey;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.RSAPublicKeySpec;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +25,6 @@ public class JWTUtil {
   private static final String AUTH_TOKEN_SUBJECT = "UserDetails";
 
   private final UserProperties userProperties;
-
-  private Algorithm cachedMqttAlgorithm;
 
   // Build JWT token for authentication
   public JWTCreator.Builder buildAccessToken(TokenPayload payload) throws JWTCreationException {
@@ -89,50 +81,6 @@ public class JWTUtil {
     return signAccessToken(builder, userProperties.refreshTokenExpiration());
   }
 
-  // Build JWT token for MQTT authentication
-  public JWTCreator.Builder buildMqttToken(MqttTokenPayload payload)
-      throws JWTCreationException {
-    log.debug("Building MQTT token for userId/deviceId: {}, topics: {}", payload.userId(),
-        payload.topics());
-    JWTCreator.Builder builder = JWT.create()
-        .withSubject(payload.userId().toString())
-        .withClaim("subs", payload.topics())
-        .withClaim("publ", payload.topics())
-        .withIssuer(userProperties.tokenIssuer());
-    if (payload.deviceId() != null) {
-      builder.withClaim("deviceId", payload.deviceId());
-    }
-    return builder;
-  }
-
-  // Sign auth MQTT JWT token with RSA using SHA-256
-  private String signMqttToken(JWTCreator.Builder builder, Duration expiration)
-      throws JWTCreationException {
-    try {
-      Instant now = Instant.now();
-      Instant expiresAt = now.plus(expiration);
-      return builder
-          .withIssuedAt(now)
-          .withExpiresAt(expiresAt)
-          .sign(getMqttAlgorithm());
-    } catch (JWTCreationException e) {
-      log.error("Error signing MQTT token", e);
-      throw e;
-    }
-  }
-
-  // Create a short-lived MQTT auth JWT token
-  public String generateMqttToken(MqttTokenPayload payload) {
-    JWTCreator.Builder builder;
-    try {
-      builder = buildMqttToken(payload);
-    } catch (JWTCreationException e) {
-      log.error("Error building MQTT JWT token", e);
-      throw e;
-    }
-    return signMqttToken(builder, userProperties.mqttTokenExpiration());
-  }
-
   public Map<String, Claim> validateTokenAndRetrieveClaims(String token)
       throws JWTVerificationException, IllegalArgumentException {
     if (token == null || token.isBlank()) {
@@ -163,78 +111,4 @@ public class JWTUtil {
     return Instant.now().plus(userProperties.refreshTokenExpiration());
   }
 
-  public Instant getMqttTokenExpiryDate() {
-    return Instant.now().plus(userProperties.mqttTokenExpiration());
-  }
-
-  private synchronized Algorithm getMqttAlgorithm() {
-    if (cachedMqttAlgorithm != null) {
-      return cachedMqttAlgorithm;
-    }
-    try {
-      byte[] keyBytes = Base64.getDecoder().decode(userProperties.mqttTokenPrivateKey());
-      KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-      PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
-      RSAPrivateKey privateKey = (RSAPrivateKey) keyFactory.generatePrivate(keySpec);
-
-      RSAPublicKeySpec publicKeySpec = new RSAPublicKeySpec(
-          privateKey.getModulus(),
-          java.math.BigInteger.valueOf(65537)
-      );
-      RSAPublicKey publicKey = (RSAPublicKey) keyFactory.generatePublic(publicKeySpec);
-
-      this.cachedMqttAlgorithm = Algorithm.RSA256(publicKey, privateKey);
-      return this.cachedMqttAlgorithm;
-    } catch (Exception e) {
-      log.error("Failed to initialize MQTT asymmetric engine", e);
-      throw new IllegalStateException("Crypto initialization exception. Cannot verify structural telemetry channels.", e);
-    }
-  }
-
-  public DecodedJWT validateMqttToken(String token) throws JWTVerificationException {
-    if (token == null || token.isBlank()) {
-      throw new IllegalArgumentException("Token cannot be null or blank");
-    }
-
-    return JWT.require(getMqttAlgorithm())
-        .withIssuer(userProperties.tokenIssuer())
-        .build()
-        .verify(token);
-  }
-
-  public boolean validateMqttAcl(String token, String topic, int action) {
-    if (token == null || token.isBlank()) return false;
-
-    try {
-      DecodedJWT jwt = validateMqttToken(token);
-
-      if (action == 1) { // SUBSCRIBE
-        List<String> subs = jwt.getClaim("subs").asList(String.class);
-        return subs != null && subs.stream().anyMatch(rule -> mqttTopicMatch(rule, topic));
-      } else if (action == 2) { // PUBLISH
-        Claim publClaim = jwt.getClaim("publ");
-        if (publClaim.isMissing() || publClaim.isNull()) {
-          return false;
-        }
-
-        List<String> publs = publClaim.asList(String.class);
-        return publs != null && publs.stream().anyMatch(rule -> mqttTopicMatch(rule, topic));
-      }
-      return false;
-    } catch (Exception e) {
-      log.error("ACL verification failed due to token parsing error: {}", e.getMessage());
-      return false;
-    }
-  }
-
-  private boolean mqttTopicMatch(String rule, String topic) {
-    if (rule.equals("#") || rule.equals(topic)) return true;
-    String regex = rule
-        .replace("$", "\\$")
-        .replace(".", "\\.")
-        .replace("/#", "(/.*)?")
-        .replace("+", "[^/]+")
-        .replace("#", ".*");
-    return topic.matches("^" + regex + "$");
-  }
 }

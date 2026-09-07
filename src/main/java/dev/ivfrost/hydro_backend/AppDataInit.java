@@ -1,6 +1,5 @@
 package dev.ivfrost.hydro_backend;
 
-import dev.ivfrost.hydro_backend.config.ApiProperties;
 import dev.ivfrost.hydro_backend.config.SeedProperties;
 import dev.ivfrost.hydro_backend.devices.internal.Device;
 import dev.ivfrost.hydro_backend.devices.internal.DeviceRepository;
@@ -28,9 +27,8 @@ public class AppDataInit implements ApplicationRunner {
   private final DeviceRepository deviceRepository;
   private final DeviceKeyEncriptionUtil encryptionUtil;
   private final SeedProperties seedProperties;
-  private final ApiProperties apiProperties;
 
-  // Seed the database with an admin user and an MQTT API user if they don't exist
+  // Seed the database with an admin user if it doesn't exist
   @Override
   public void run(@NonNull ApplicationArguments args) {
 
@@ -45,19 +43,6 @@ public class AppDataInit implements ApplicationRunner {
           .build();
       adminUser.getRoles().add(new UserRole(adminUser, UserRole.Role.ADMIN));
       userRepository.save(adminUser);
-    }
-    if (userRepository.findByUsername(apiProperties.mqttUsername()).isEmpty()) {
-      User mqttApiUser =
-      userRepository.save(User.builder()
-          .username(apiProperties.mqttUsername())
-          .fullName("MQTT API User")
-          .password(passwordEncoder.encode(apiProperties.mqttPassword()))
-          .email(String.format("%s@internal.hydro", apiProperties.mqttUsername()))
-          .createdAt(Instant.now())
-          .updatedAt(Instant.now())
-          .build());
-      mqttApiUser.getRoles().add(new UserRole(mqttApiUser, UserRole.Role.USER));
-      userRepository.save(mqttApiUser);
     }
   }
 

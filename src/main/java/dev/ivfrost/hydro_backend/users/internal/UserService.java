@@ -8,7 +8,6 @@ import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUnlinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.tokens.JWTUtil;
-import dev.ivfrost.hydro_backend.tokens.MqttTokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
 import dev.ivfrost.hydro_backend.tokens.UserTokenProvider;
@@ -19,7 +18,6 @@ import dev.ivfrost.hydro_backend.users.UserAuthRequest;
 import dev.ivfrost.hydro_backend.devices.UserDeviceProvider;
 import dev.ivfrost.hydro_backend.users.UserDisabledException;
 import dev.ivfrost.hydro_backend.users.UserMapper;
-import dev.ivfrost.hydro_backend.users.UserMqttResponse;
 import dev.ivfrost.hydro_backend.users.UserRecoveryRequest;
 import dev.ivfrost.hydro_backend.users.UserRegisterRequest;
 import dev.ivfrost.hydro_backend.users.UserResponse;
@@ -334,23 +332,6 @@ public class UserService {
         userMapper.mapRoles(user.getRoles()),
         user.getId()
     ));
-  }
-
-  /**
-   * Get short-lived RS256 signed JWT token for MQTT authentication.
-   *
-   * @return the MQTT authentication response containing the JWT token
-   * @throws AuthenticationCredentialsNotFoundException if the user is not found
-   */
-  UserMqttResponse getMqttAuthToken() throws AuthenticationCredentialsNotFoundException {
-    User user = getCurrentUser();
-    List<String> topics = deviceTopicProvider.getTopicsForUser(user.getId());
-    log.debug("Retrieved {} topics for user {}: {}", topics.size(), user.getId(), topics);
-    return new UserMqttResponse(user.getId(), jwtUtil.generateMqttToken(new MqttTokenPayload(
-        user.getId(),
-        null,
-        topics
-    )));
   }
 
   /**

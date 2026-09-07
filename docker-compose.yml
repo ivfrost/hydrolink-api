@@ -40,28 +40,6 @@ services:
     networks:
       - hydro-network
 
-  nanomq:
-    image: emqx/nanomq:latest
-    container_name: nanomq_dev
-    restart: on-failure:3
-    ports:
-      - "1883:1883"
-      - "8883:8883"
-      - "8083:8083"
-    volumes:
-      - ./nanomq.conf:/usr/local/nanomq/nanomq.prod.conf
-      - ./mqtt_public_key.pem:/etc/mqtt_public_key.pem
-    networks:
-      - hydro-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    healthcheck:
-      test: [ "CMD", "nc", "-z", "127.0.0.1", "1883" ]
-      start_period: 15s
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
   minio:
     image: minio/minio
     container_name: minio_dev

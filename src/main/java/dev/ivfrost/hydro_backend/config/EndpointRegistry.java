@@ -20,7 +20,6 @@ public class EndpointRegistry {
       "/v1/users/validate/**",
       "/v1/users/password/reset",
       "/v1/validation/**",
-      "/v1/internal/mqtt/**",
       "/actuator/**",
       "/v1/storage/files/**" // Uploads require auth at method level
   );
@@ -44,8 +43,6 @@ public class EndpointRegistry {
       "/h2-console"
   );
   private static final List<String> DEVICE_CALLABLE = List.of(
-      "/v1/internal/devices/auth",
-      "/v1/internal/devices/last-seen",
       "/v1/internal/devices/provision"
   );
 

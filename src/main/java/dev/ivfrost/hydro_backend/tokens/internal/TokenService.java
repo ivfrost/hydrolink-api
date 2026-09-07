@@ -2,7 +2,6 @@ package dev.ivfrost.hydro_backend.tokens.internal;
 
 import com.auth0.jwt.interfaces.Claim;
 import dev.ivfrost.hydro_backend.tokens.JWTUtil;
-import dev.ivfrost.hydro_backend.tokens.MqttTokenPayload;
 import dev.ivfrost.hydro_backend.tokens.RecoveryCodeUtil;
 import dev.ivfrost.hydro_backend.tokens.TokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
@@ -70,22 +69,5 @@ public class TokenService {
   public Map<String, Claim> validateTokenAndRetrieveClaims(String token) {
     return jWTUtil.validateTokenAndRetrieveClaims(token);
   }
-  
-  public TokenResponse generateMqttToken(MqttTokenPayload payload) {
-    String token = jWTUtil.generateMqttToken(payload);
-    return new TokenResponse(
-        token,
-        TokenType.MQTT_TOKEN.toString(),
-        jWTUtil.getMqttTokenExpiryDate(),
-        payload.userId()
-    );
-  }
 
-  public void validateMqttToken(String token) {
-    jWTUtil.validateMqttToken(token);
-  }
-
-  public boolean validateMqttAcl(String token, String topic, int action) {
-    return jWTUtil.validateMqttAcl(token, topic, action);
-  }
 }

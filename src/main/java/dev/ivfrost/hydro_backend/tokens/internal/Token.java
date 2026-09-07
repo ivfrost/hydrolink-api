@@ -38,8 +38,6 @@ public class Token {
     AUTH_RECOVERY_CODE,
     AUTH_ACCESS_TOKEN,
     AUTH_REFRESH_TOKEN,
-    MQTT_TOKEN,
-    DEVICE_MQTT_TOKEN
   }
 
 }

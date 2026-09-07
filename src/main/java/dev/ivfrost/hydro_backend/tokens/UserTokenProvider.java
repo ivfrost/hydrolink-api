@@ -12,7 +12,5 @@ public interface UserTokenProvider {
 
   List<TokenResponse> generateAccessAndRefreshTokens(TokenPayload payload);
 
-  TokenResponse generateMqttToken(MqttTokenPayload payload);
-
   Map<String, Claim> validateTokenAndRetrieveClaims(String token);
 }

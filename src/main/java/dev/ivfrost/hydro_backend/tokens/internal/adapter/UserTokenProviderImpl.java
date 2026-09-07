@@ -1,7 +1,6 @@
 package dev.ivfrost.hydro_backend.tokens.internal.adapter;
 
 import com.auth0.jwt.interfaces.Claim;
-import dev.ivfrost.hydro_backend.tokens.MqttTokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenPayload;
 import dev.ivfrost.hydro_backend.tokens.TokenResponse;
 import dev.ivfrost.hydro_backend.tokens.internal.TokenService;
@@ -32,11 +31,6 @@ public class UserTokenProviderImpl implements UserTokenProvider {
   @Override
   public List<TokenResponse> generateAccessAndRefreshTokens(TokenPayload payload) {
     return tokenService.generateAccessAndRefreshTokens(payload);
-  }
-
-  @Override
-  public TokenResponse generateMqttToken(MqttTokenPayload payload) {
-    return tokenService.generateMqttToken(payload);
   }
 
   @Override
