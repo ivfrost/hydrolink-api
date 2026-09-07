@@ -35,7 +35,7 @@ public class JWTUtil {
 
     return JWT.create()
         .withSubject(AUTH_TOKEN_SUBJECT)
-        .withClaim("userId", payload.userId())
+        .withClaim("userId", String.valueOf(payload.userId()))
         .withClaim("username", payload.username())
         .withClaim("email", payload.email())
         .withClaim("roles", roles)

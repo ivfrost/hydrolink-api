@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import java.util.Map;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -74,8 +75,8 @@ public class DeviceController {
   @PostMapping("/users/{userId}/devices/link")
   public ResponseEntity<ApiResponse<Void>> linkDeviceById(
       @Valid @RequestBody DeviceLinkRequest linkDeviceRequest,
-      @Parameter(description = "Target user ID", example = "42")
-      @PathVariable @Positive Long userId) {
+      @Parameter(description = "Target user ID")
+      @PathVariable UUID userId) {
     deviceService.linkDevice(linkDeviceRequest, userId);
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device linked to user successfully"));
@@ -88,8 +89,8 @@ public class DeviceController {
   )
   @GetMapping("/users/{userId}/devices")
   public ResponseEntity<ApiResponse<Page<DeviceResponse>>> getUserDevicesById(
-      @Parameter(description = "Target user ID", example = "42")
-      @PathVariable @Positive Long userId,
+      @Parameter(description = "Target user ID")
+      @PathVariable UUID userId,
       @Parameter(description = "Page number for pagination (1-based index)", example = "1")
       @RequestParam(required = false) Integer page,
       @Parameter(description = "Number of devices per page", example = "10")

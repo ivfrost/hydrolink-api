@@ -2,6 +2,7 @@ package dev.ivfrost.hydro_backend.devices;
 
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import java.util.UUID;
 
 public record AdminDeviceUpdateRequest(
     @Size(max = 40)
@@ -18,7 +19,7 @@ public record AdminDeviceUpdateRequest(
     String description,
     @Size(max = 2048)
     String imageUrl,
-    Long userId,
+    UUID userId,
     @Positive Integer displayOrder
 ) {
 

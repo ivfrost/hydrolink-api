@@ -2,6 +2,7 @@ package dev.ivfrost.hydro_backend.users;
 
 import dev.ivfrost.hydro_backend.users.internal.User;
 import dev.ivfrost.hydro_backend.users.internal.UserRepository;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,7 +20,7 @@ public class MyUserDetailsService implements UserDetailsService {
   // user ID as the "username" for JWT-based authentication.
   @Override
   public @NonNull UserDetails loadUserByUsername(@NonNull String idString) {
-    Long id = Long.parseLong(idString);
+    UUID id = UUID.fromString(idString);
 
     User user = userRepository.findById(id)
         .orElseThrow(() -> new UsernameNotFoundException("User not found: " + id));

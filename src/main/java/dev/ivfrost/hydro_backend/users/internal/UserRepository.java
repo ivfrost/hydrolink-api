@@ -2,9 +2,12 @@ package dev.ivfrost.hydro_backend.users.internal;
 
 import jakarta.validation.constraints.Size;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserRepository extends JpaRepository<User, Long> {
+
+  Optional<User> findById(UUID id);
 
   Optional<User> findByUsername(String username);
 

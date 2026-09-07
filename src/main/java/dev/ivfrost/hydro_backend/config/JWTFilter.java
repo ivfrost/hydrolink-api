@@ -72,14 +72,14 @@ public class JWTFilter extends OncePerRequestFilter {
         }
 
         log.trace("JWT claims keys: {}", claims.keySet());
-        Long userId = claims.get("userId").asLong();
-        if (userId == null) {
+        String userId = claims.get("userId").asString();
+        if (userId == null || userId.isBlank()) {
           log.warn("JWT contains no userId");
           response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid JWT Token");
           return;
         }
 
-        UserDetails userDetails = userDetailsService.loadUserByUsername(String.valueOf(userId));
+        UserDetails userDetails = userDetailsService.loadUserByUsername(userId);
         log.trace("Loaded userDetails for id {}. Authorities: {}", userId,
             userDetails.getAuthorities());
 

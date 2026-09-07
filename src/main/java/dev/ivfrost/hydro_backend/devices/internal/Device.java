@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -105,7 +106,7 @@ public class Device implements Serializable {
   private Instant linkedAt;
 
   @Column(name = "user_id")
-  private Long userId;
+  private UUID userId;
 
   @Column(name = "display_order")
   private Long displayOrder;

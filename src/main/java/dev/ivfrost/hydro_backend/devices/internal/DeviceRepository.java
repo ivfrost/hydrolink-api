@@ -2,10 +2,9 @@ package dev.ivfrost.hydro_backend.devices.internal;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
+import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -29,7 +28,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     """, nativeQuery = true)
   void upsert(@Param("d") Device device);
 
-  Page<Device> findAllByUserId(Long userId, Pageable pageable);
+  Page<Device> findAllByUserId(UUID userId, Pageable pageable);
 
   List<Device> findAllByTechnicalName(String technicalName);
 
@@ -44,6 +43,6 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
   Page<Device> findAllWithPins(Pageable pageable);
 
   @Query("SELECT d FROM Device d LEFT JOIN FETCH d.pins WHERE d.userId = :userId")
-  Page<Device> findAllByUserIdWithPins(@Param("userId") Long userId, Pageable pageable);
+  Page<Device> findAllByUserIdWithPins(@Param("userId") UUID userId, Pageable pageable);
 
 }

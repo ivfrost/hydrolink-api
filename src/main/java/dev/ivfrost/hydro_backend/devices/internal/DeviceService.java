@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +59,8 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 @Service
 public class DeviceService {
+
+  private static final String DEVICE_NOT_FOUND_KEY_STR = "Device not found for key: ";
 
   private final DeviceRepository deviceRepository;
   private final DeviceCacheService deviceCacheService;
@@ -167,7 +170,7 @@ public class DeviceService {
    *
    * @param userId the user ID whose device cache entries should be evicted
    */
-  private void evictUserDeviceCache(Long userId) {
+  private void evictUserDeviceCache(UUID userId) {
     String pattern = "deviceByUserIdCache::" + userId + "-*";
     Set<String> keys = redisTemplate.keys(pattern);
     if (keys != null && !keys.isEmpty()) {
@@ -190,7 +193,7 @@ public class DeviceService {
       @CacheEvict(value = "allDevicesCache", allEntries = true)
   })
   @Transactional
-  public DeviceResponse linkDevice(DeviceLinkRequest req, Long userId) {
+  public DeviceResponse linkDevice(DeviceLinkRequest req, UUID userId) {
 
     // Fetch unlinked device by secret hash
     String encryptedInput = encryptionUtil.encrypt(req.secret());
@@ -223,9 +226,9 @@ public class DeviceService {
       @CacheEvict(value = "allDevicesCache", allEntries = true)
   })
   @Transactional
-  public void unlinkDevice(String deviceKey, Long userId) {
+  public void unlinkDevice(String deviceKey, UUID userId) {
     Device device = deviceRepository.findByKey(deviceKey)
-        .orElseThrow(() -> new DeviceNotFoundException("Device not found for key: " + deviceKey));
+        .orElseThrow(() -> new DeviceNotFoundException(DEVICE_NOT_FOUND_KEY_STR + deviceKey));
 
     if (device.getUserId() == null || !Objects.equals(device.getUserId(), userId)) {
       throw new DeviceLinkException("Device is not linked to this user");
@@ -245,7 +248,7 @@ public class DeviceService {
    * @throws DeviceNotFoundException  if the device is not found
    * @throws IllegalArgumentException if the device does not belong to the specified user
    */
-  public void verifyDeviceOwnership(Long userId, String deviceKey) {
+  public void verifyDeviceOwnership(UUID userId, String deviceKey) {
     Device device = requireDeviceByKey(deviceKey);
     if (!Objects.equals(device.getUserId(), userId)) {
       throw new IllegalArgumentException("Device does not belong to the specified user");
@@ -259,7 +262,7 @@ public class DeviceService {
    * @return a list of device response DTOs
    * @throws DeviceFetchException if no devices are found for the user
    */
-  public Page<DeviceResponse> getDevicesByUserId(Long userId, Pageable pageable) {
+  public Page<DeviceResponse> getDevicesByUserId(UUID userId, Pageable pageable) {
     RestResponsePage<DeviceResponse> devices = deviceCacheService.getDevicesByUserId(userId, pageable);
     log.debug("Fetched {} devices for user ID {}", devices.getContent().size(), userId);
     return devices;
@@ -293,13 +296,13 @@ public class DeviceService {
    *                                 or if a non-admin attempts to update restricted fields
    */
   private DeviceResponse doUpdateDeviceDetails(String deviceKey, DeviceUpdateRequest req,
-      Long requestingUserId, Long newUserId, boolean isAdmin)
+      UUID requestingUserId, UUID newUserId, boolean isAdmin)
       throws AccessDeniedException {
     Device device = requireDeviceByKey(deviceKey);
 
     String technicalName = req.technicalName();
     String firmware = req.firmware();
-    Long originalUserId = device.getUserId();
+    UUID originalUserId = device.getUserId();
 
     // Verify ownership and guard against non-admin users trying to update restricted fields
     if (!isAdmin) {
@@ -356,7 +359,7 @@ public class DeviceService {
   })
   @Transactional
   public DeviceResponse updateDeviceDetails(String deviceKey, DeviceUpdateRequest req,
-      Long requestingUserId)
+      UUID requestingUserId)
       throws AccessDeniedException {
     return doUpdateDeviceDetails(deviceKey, req, requestingUserId, null, false);
   }
@@ -398,7 +401,7 @@ public class DeviceService {
   public void deleteDeviceByKey(String deviceKey) {
     Device device = deviceRepository.findByKey(deviceKey)
         .orElseThrow(() -> new DeviceNotFoundException("Device not found for key: " + deviceKey));
-    Long userId = device.getUserId();
+    UUID userId = device.getUserId();
     deviceRepository.delete(device);
 
     // Evict caches manually
@@ -429,7 +432,7 @@ public class DeviceService {
       }
   )
   @Transactional
-  public void persistDeviceOrder(Long userId, List<Long> deviceIds) {
+  public void persistDeviceOrder(UUID userId, List<Long> deviceIds) {
     List<Device> userDevices = deviceRepository.findAllById(deviceIds);
     Map<Long, Device> deviceMap = userDevices.stream()
         .collect(Collectors.toMap(Device::getId, Function.identity()));
@@ -456,7 +459,7 @@ public class DeviceService {
    * @param userId the user whose devices are being ordered
    * @return the next display order
    */
-  private long calculateDeviceOrder(Long userId) {
+  private long calculateDeviceOrder(UUID userId) {
     RestResponsePage<DeviceResponse> devices = deviceCacheService.getDevicesByUserId(userId, Pageable.unpaged());
     return devices.stream()
         .map(DeviceResponse::displayOrder)
@@ -724,7 +727,7 @@ public class DeviceService {
    *
    * @return the list of MQTT topics
    */
-  public List<String> getUserDeviceTopics(Long userId) {
+  public List<String> getUserDeviceTopics(UUID userId) {
     List<Device> devices = deviceRepository.findAllByUserId(userId, Pageable.unpaged()).getContent();
     return devices.stream()
         .map(device -> "hydro/" + device.getKey() + "/#")
@@ -770,7 +773,7 @@ class DeviceCacheService {
    * @return list of devices owned by the user
    */
   @Cacheable(value = "deviceByUserIdCache", key = "#userId + '-' + #pageable")
-  public RestResponsePage<DeviceResponse> getDevicesByUserId(Long userId, Pageable pageable) {
+  public RestResponsePage<DeviceResponse> getDevicesByUserId(UUID userId, Pageable pageable) {
     Page<Device> device = deviceRepository.findAllByUserIdWithPins(userId, pageable);
     List<DeviceResponse> deviceResponses = device.stream()
         .map(deviceMapper::deviceToDeviceResponse)

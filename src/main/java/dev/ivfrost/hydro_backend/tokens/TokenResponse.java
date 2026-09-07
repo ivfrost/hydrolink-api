@@ -2,6 +2,7 @@ package dev.ivfrost.hydro_backend.tokens;
 
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
+import java.util.UUID;
 
 public record TokenResponse(
     @NotNull
@@ -11,6 +12,6 @@ public record TokenResponse(
     @NotNull
     Instant expiryDate,
     @NotNull
-    Long userId) {
+    UUID userId) {
 
 }

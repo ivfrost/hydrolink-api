@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;
@@ -76,12 +77,12 @@ public class StorageController {
   public ResponseEntity<ApiResponse<UploadResponse>> uploadFileForUser(
       @Parameter(description = "Binary file stream sent from client app", schema = @Schema(type = "string", format = "binary"))
       @RequestPart("file") MultipartFile file,
-      @Parameter(description = "ID of the user to associate the uploaded file with", example = "42")
-      @PathVariable @Positive Long userId) {
+      @Parameter(description = "ID of the user to associate the uploaded file with")
+      @PathVariable UUID userId) {
 
     return handleUpload(
         file,
-        String.format("users/%d", userId),
+        String.format("users/%s", userId),
         "File uploaded successfully for user " + userId
     );
   }

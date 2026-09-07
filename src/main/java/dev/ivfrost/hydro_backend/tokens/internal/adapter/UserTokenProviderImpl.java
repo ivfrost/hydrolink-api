@@ -7,6 +7,7 @@ import dev.ivfrost.hydro_backend.tokens.internal.TokenService;
 import dev.ivfrost.hydro_backend.tokens.UserTokenProvider;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -19,12 +20,12 @@ public class UserTokenProviderImpl implements UserTokenProvider {
   }
 
   @Override
-  public boolean isTokenValidForUserId(String token, long userId) {
+  public boolean isTokenValidForUserId(String token, UUID userId) {
     return tokenService.isTokenValidForUserId(token, userId);
   }
 
   @Override
-  public List<TokenResponse> generateRecoveryCodes(long userId) {
+  public List<TokenResponse> generateRecoveryCodes(UUID userId) {
     return tokenService.generateRecoveryCodes(userId);
   }
 

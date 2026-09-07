@@ -3,6 +3,7 @@ package dev.ivfrost.hydro_backend.users;
 import dev.ivfrost.hydro_backend.users.internal.User;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -36,7 +37,7 @@ public class MyUserDetails implements UserDetails {
     return String.valueOf(user.getId());
   }
 
-  public Long getUserId() {
+  public UUID getUserId() {
     return user.getId();
   }
 

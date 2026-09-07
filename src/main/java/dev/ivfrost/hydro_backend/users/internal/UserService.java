@@ -26,6 +26,7 @@ import dev.ivfrost.hydro_backend.users.UsernameTakenException;
 import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,13 +50,10 @@ public class UserService {
 
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
-  private final JWTUtil jwtUtil;
-  private final DeviceTopicProvider deviceTopicProvider;
   private final UserTokenProvider userTokenProvider;
   private final UserDeviceProvider userDeviceProvider;
   private final DeviceLinkProvider deviceLinkProvider;
   private final UserMapper userMapper;
-  private final DeviceMapper deviceMapper;
 
   /**
    * Authenticates a user by email and password.
@@ -176,7 +174,7 @@ public class UserService {
    * @return {@link User} entity
    * @throws AuthenticationCredentialsNotFoundException if the user is not found
    */
-  private User getUserById(Long userId) {
+  private User getUserById(UUID userId) {
     return requireUserById(userId);
   }
 
@@ -186,7 +184,7 @@ public class UserService {
    * @param userId the user ID
    * @return {@link UserResponse} containing user profile information
    */
-  UserResponse getUserProfileById(Long userId) {
+  UserResponse getUserProfileById(UUID userId) {
     return userMapper.userToUserResponse(getUserById(userId));
   }
 
@@ -211,7 +209,7 @@ public class UserService {
    * @throws UserDisabledException                      if the user is already disabled
    * @throws AuthenticationCredentialsNotFoundException if the user is not found
    */
-  void disableUserById(Long userId) {
+  void disableUserById(UUID userId) {
     User user = requireUserById(userId);
     if (!user.isEnabled()) {
       throw new UserDisabledException(userId);
@@ -321,9 +319,9 @@ public class UserService {
    */
   List<TokenResponse> refreshTokens(String refreshToken) {
     Map<String, Claim> claims = userTokenProvider.validateTokenAndRetrieveClaims(refreshToken);
-    Long tokenUserId = claims.get("userId").asLong();
+    String tokenUserId = claims.get("userId").asString();
 
-    User user = userRepository.findById(tokenUserId)
+    User user = userRepository.findById(UUID.fromString(tokenUserId))
         .orElseThrow(() -> new BadCredentialsException("User not found"));
 
     return userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
@@ -408,7 +406,7 @@ public class UserService {
    * @return {@link User} entity
    * @throws AuthenticationCredentialsNotFoundException if the user is not found
    */
-  private User requireUserById(Long userId) {
+  private User requireUserById(UUID userId) {
     return userRepository.findById(userId)
         .orElseThrow(() -> new AuthenticationCredentialsNotFoundException(
             "User with ID " + userId + " not found."));
@@ -433,12 +431,12 @@ public class UserService {
    * @return the user ID
    * @throws AuthenticationCredentialsNotFoundException if no authenticated user is found
    */
-  public Long getCurrentUserId() {
+  public UUID getCurrentUserId() {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
     if (authentication == null || !authentication.isAuthenticated()
         || authentication instanceof AnonymousAuthenticationToken) {
       throw new AuthenticationCredentialsNotFoundException("No authenticated user found.");
     }
-    return Long.parseLong(authentication.getName());
+    return UUID.fromString(authentication.getName());
   }
 }

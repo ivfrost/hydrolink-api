@@ -9,6 +9,7 @@ import dev.ivfrost.hydro_backend.tokens.internal.Token.TokenType;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +20,7 @@ public class TokenService {
   private final TokenRepository tokenRepository;
   private final JWTUtil jWTUtil;
 
-  public boolean isTokenValidForUserId(String token, long userId) {
+  public boolean isTokenValidForUserId(String token, UUID userId) {
     Token foundToken = tokenRepository.findTokenByValueAndUserId(token, userId);
     if (foundToken == null) {
       return false;
@@ -45,7 +46,7 @@ public class TokenService {
     );
   }
 
-  public List<TokenResponse> generateRecoveryCodes(Long userId) {
+  public List<TokenResponse> generateRecoveryCodes(UUID userId) {
     String[] recoveryCodes = RecoveryCodeUtil.generateRecoveryCodes();
 
     // Save recovery codes to the database

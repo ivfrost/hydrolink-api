@@ -3,6 +3,7 @@ package dev.ivfrost.hydro_backend.devices;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.Set;
+import java.util.UUID;
 import lombok.Builder;
 
 @Builder
@@ -21,7 +22,7 @@ public record DeviceResponse(
     @NotNull Instant createdAt,
     @NotNull Instant updatedAt,
     @NotNull Instant linkedAt,
-    @NotNull Long userId,
+    @NotNull UUID userId,
     @NotNull Integer displayOrder,
     @NotNull Set<PinResponse> pins
 ) {

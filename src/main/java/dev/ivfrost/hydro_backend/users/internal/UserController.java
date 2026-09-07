@@ -29,6 +29,7 @@ import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
@@ -331,8 +332,8 @@ public class UserController {
   @Operation(summary = "Retrieve user profile by ID (Admin only)")
   @GetMapping("/users/{userId}")
   public ResponseEntity<ApiResponse<UserResponse>> getUserProfileById(
-      @Parameter(description = "Target user ID", example = "42")
-      @PathVariable @Positive Long userId) {
+      @Parameter(description = "Target user ID")
+      @PathVariable UUID userId) {
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "User profile retrieved successfully",
             userService.getUserProfileById(userId)));
@@ -343,8 +344,8 @@ public class UserController {
   @Operation(summary = "Disable user by ID (Admin only)")
   @DeleteMapping("/users/{userId}")
   public ResponseEntity<ApiResponse<Void>> deleteUserById(
-      @Parameter(description = "Target user ID", example = "42")
-      @PathVariable @Positive Long userId) {
+      @Parameter(description = "Target user ID")
+      @PathVariable UUID userId) {
     userService.disableUserById(userId);
     return ResponseEntity.status(HttpStatus.NO_CONTENT)
         .body(ApiResponse.success(HttpStatus.NO_CONTENT, "User deleted successfully"));

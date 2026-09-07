@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Null;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import java.util.UUID;
 
 public record DeviceUpdateRequest(
     @Schema(
@@ -49,7 +50,7 @@ public record DeviceUpdateRequest(
     @Size(max = 2048)
     String imageUrl,
     @Null // controlled by link/unlink
-    Long userId,
+    UUID userId,
     @Positive Integer displayOrder
 ) {
 

@@ -12,6 +12,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.Data;
 
 @Data
@@ -32,7 +33,7 @@ public class Token {
   @Column(name = "expiry_date", nullable = true, columnDefinition = "TIMESTAMP WITH TIME ZONE")
   private Instant expiryDate;
   @Column(name = "user_id", nullable = false)
-  private long userId;
+  private UUID userId;
 
   public enum TokenType {
     AUTH_RECOVERY_CODE,

@@ -2,6 +2,7 @@ package dev.ivfrost.hydro_backend.devices.internal;
 
 import dev.ivfrost.hydro_backend.devices.DeviceTopicProvider;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -14,7 +15,7 @@ class DeviceTopicProviderImpl implements DeviceTopicProvider {
   }
 
   @Override
-  public List<String> getTopicsForUser(Long userId) {
+  public List<String> getTopicsForUser(UUID userId) {
     return deviceService.getUserDeviceTopics(userId);
   }
 }

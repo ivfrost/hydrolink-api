@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.Table;
 import java.io.Serializable;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,7 +21,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 class UserRoleId implements Serializable {
-  private Long userId;
+  private UUID userId;
   private UserRole.Role role;
 }
 
@@ -43,7 +44,7 @@ public class UserRole {
 
   @Id
   @Column(name = "user_id", nullable = false)
-  private Long userId;
+  private UUID userId;
 
   @Id
   @Enumerated(EnumType.STRING)
