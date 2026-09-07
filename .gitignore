@@ -49,7 +49,6 @@ hydro-backend.tar
 
 ### Env files ###
 .env*
-application-dev.properties
 application-test.properties
 !*.template
 !*.example
