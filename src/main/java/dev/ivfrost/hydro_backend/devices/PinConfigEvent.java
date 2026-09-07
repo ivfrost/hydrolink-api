@@ -1,4 +1,4 @@
-package dev.ivfrost.hydro_backend.config;
+package dev.ivfrost.hydro_backend.devices;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

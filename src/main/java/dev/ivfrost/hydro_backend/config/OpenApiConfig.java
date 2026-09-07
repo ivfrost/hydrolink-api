@@ -34,7 +34,7 @@ public class OpenApiConfig {
   }
 
   /**
-   * Internal-only API spec for MQTT broker callbacks and device provisioning.
+   * Internal-only API spec for broker callbacks and device-record registration.
    */
   @Bean
   public GroupedOpenApi internalApi() {
@@ -45,8 +45,7 @@ public class OpenApiConfig {
           openApi.setInfo(new io.swagger.v3.oas.models.info.Info()
               .title("Hydro API - Internal")
               .version("v1")
-              .description("Internal endpoints for MQTT broker callbacks and device provisioning. "
-                  + "Not intended for public API consumers."));
+              .description("Internal endpoints for broker callbacks and registering application device records. Device-record registration is separate from the AWS Thing, which the ESP provisions through AWS fleet provisioning on boot. Not intended for public API consumers."));
           // Internal endpoints use a raw provisioning bearer token, not the user-facing JWT
           // bearerAuth scheme, so drop the global security requirement for this spec.
           openApi.setSecurity(Collections.emptyList());

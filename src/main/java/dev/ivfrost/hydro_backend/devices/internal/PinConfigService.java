@@ -15,7 +15,7 @@ import jakarta.transaction.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-import dev.ivfrost.hydro_backend.config.PinConfigEvent;
+import dev.ivfrost.hydro_backend.devices.PinConfigEvent;
 import dev.ivfrost.hydro_backend.devices.PinMode;
 
 @RequiredArgsConstructor
@@ -35,9 +35,20 @@ public class PinConfigService {
 
     for (JsonNode pinNode : pinsArray) {
       int pinNumber = pinNode.path("pin").asInt();
-      PinMode mode = "Output".equalsIgnoreCase(pinNode.path("mode").asString())
-          ? PinMode.OUTPUT
-          : PinMode.INPUT;
+      String modeText = pinNode.path("mode").asString();
+
+      PinMode mode;
+      if ("Output".equalsIgnoreCase(modeText)) {
+        mode = PinMode.OUTPUT;
+      } else if ("Input".equalsIgnoreCase(modeText)) {
+        mode = PinMode.INPUT;
+      } else {
+        // ponytail: an unknown mode is an anomaly in a real pin_config message; skip + warn
+        // instead of forcing it into OUTPUT/INPUT
+        log.warn("Skipping pin config for device {} pin {} with unrecognized mode '{}'",
+            deviceKey, pinNumber, modeText);
+        continue;
+      }
 
       Pin pin = pinRepository.findByDeviceAndPinNumber(device, pinNumber)
           .orElseGet(() -> {

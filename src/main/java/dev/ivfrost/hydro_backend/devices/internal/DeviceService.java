@@ -4,10 +4,9 @@ import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import dev.ivfrost.hydro_backend.common.RestResponsePage;
 import dev.ivfrost.hydro_backend.config.DeviceProperties;
-import dev.ivfrost.hydro_backend.config.MqttGateway;
-import dev.ivfrost.hydro_backend.config.SecretRotatedEvent;
+import dev.ivfrost.hydro_backend.config.CommandGateway;
+import dev.ivfrost.hydro_backend.devices.SecretRotatedEvent;
 import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
-import dev.ivfrost.hydro_backend.devices.DeviceAuthRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceFetchException;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkException;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
@@ -16,14 +15,10 @@ import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
-import dev.ivfrost.hydro_backend.devices.MqttAclRequest;
-import dev.ivfrost.hydro_backend.devices.MqttAuthRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DuplicateMacAddressException;
 import dev.ivfrost.hydro_backend.tokens.DeviceTokenProvider;
 import dev.ivfrost.hydro_backend.tokens.DeviceKeyEncriptionUtil;
-import dev.ivfrost.hydro_backend.tokens.MqttTokenPayload;
-import dev.ivfrost.hydro_backend.tokens.TokenResponse;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.Duration;
 import java.time.Instant;
@@ -42,13 +37,11 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
-import org.springframework.cache.concurrent.ConcurrentMapCache;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
@@ -78,7 +71,7 @@ public class DeviceService {
   private final OtaUpdateService otaUpdateService;
 
   private final DeviceProperties deviceProperties;
-  private final MqttGateway mqttGateway;
+  private final CommandGateway commandGateway;
   private final com.github.benmanes.caffeine.cache.Cache<String, String> pendingSecretChanges = Caffeine.newBuilder()
       .expireAfterWrite(Duration.ofMinutes(5))
       .removalListener((key, value, cause) -> {
@@ -90,13 +83,16 @@ public class DeviceService {
   private final RedisTemplate<String, Object> redisTemplate;
 
   /**
-   * Provisions a new device and generates a secret for ownership verification.
-   * Evicts the global device cache.
-   * Meant to be called by an admin user through the API.
+   * Registers a device record in this service and generates an ownership secret for linking.
+   * Evicts the global device cache. Admin-only call.
    *
-   * @param req the device provision request DTO
-   * @return the provisioned device response DTO
-   * @throws DuplicateMacAddressException if a device with the same MAC address already exists
+   * <p>Operates on the application's <em>device record</em> (identity + linking secret). It does
+   * not touch the AWS Thing: the ESP provisions the AWS Thing itself through X.509 fleet
+   * provisioning on first boot, which never reaches this endpoint.
+   *
+   * @param req the device record registration request DTO
+   * @return the device record response DTO (with the raw ownership secret)
+   * @throws DuplicateMacAddressException if a device record with the same MAC address already exists
    */
   @Transactional
   @Caching(evict = {
@@ -121,12 +117,17 @@ public class DeviceService {
   }
 
   /**
-   * Provisions a new device and generates a secret for ownership verification.
-   * Meant to be called by post build hook by the ESP32 device itself.
+   * Registers (or updates) a device record for an ESP32 that is booting, and issues its
+   * ownership secret. Called by the device's own boot/post-build flow with a provisioning token.
    *
-   * @param req the device provision request DTO
-   * @param authorizationHeader the authorization header containing the provisioning token
-   * @return the provisioned device response DTO
+   * <p>This mirrors a booted device into the application's own data as a <em>device record</em>.
+   * It is independent of the AWS Thing: the ESP provisions the AWS Thing itself via X.509 fleet
+   * provisioning on first boot, which happens over AWS IoT Core and does not come through this
+   * endpoint.
+   *
+   * @param req the device record registration request DTO
+   * @param authorizationHeader the Authorization header holding the provisioning bearer token
+   * @return the device record response DTO (with the raw ownership secret)
    */
   @Transactional
   @Caching(evict = {
@@ -268,7 +269,9 @@ public class DeviceService {
   }
 
   /**
-   * Retrieves all devices provisioned in the system (Admin only, paginated and cached).
+   * Retrieves all device records in the application (Admin only, paginated and cached). These are
+   * the app-side rows, distinct from the AWS Things that the devices register via fleet
+   * provisioning.
    *
    * @return a list of all device response DTOs
    * @throws DeviceFetchException if no devices are found
@@ -446,39 +449,6 @@ public class DeviceService {
     deviceRepository.saveAll(userDevices);
   }
 
-  public void verifyMqttConnection(MqttAuthRequest req) throws JWTVerificationException {
-    deviceTokenProvider.validateMqttToken(req.password());
-  }
-
-  public boolean verifyMqttAcl(MqttAclRequest req) throws JWTVerificationException {
-    return deviceTokenProvider.validateMqttAcl(req.password(), req.topic(), req.action());
-  }
-
-  public TokenResponse authenticateDevice(DeviceAuthRequest req) {
-    // Load device by ID and verify secret matches
-    Device device = deviceRepository.findByKey(req.key())
-        .orElseThrow(() -> new DeviceNotFoundException("Device not found"));
-
-    // Decrypt and compare stored secret hash with the provided raw secret
-    String decryptedSecret = encryptionUtil.decrypt(device.getSecret());
-    if (!Objects.equals(decryptedSecret, req.secret())) {
-      throw new BadCredentialsException("Invalid credentials");
-    }
-
-    // Generate MQTT token with topic rules based on device ownership
-    // Fall back to -1 for user ID in topic if device is not linked to any user
-    Long userId = device.getUserId();
-    var deviceUserId = (userId != null && userId != 0) ? userId : -1L;
-
-    return deviceTokenProvider.generateMqttToken(
-        new MqttTokenPayload(
-            deviceUserId,
-            device.getId(),
-            List.of("hydro/" + device.getKey() + "/#")
-        )
-    );
-  }
-
   /*--------------------------*/
   /* Helper Methods */
   /*--------------------------*/
@@ -546,12 +516,10 @@ public class DeviceService {
 
       if (requireAck) {
         pendingSecretChanges.put(deviceKey, rawSecret);
-        mqttGateway.sendToMqtt(
+        commandGateway.publishCommand(deviceKey,
             """
             {"action":"SetSecret","cause":"Manual","secret":"%s"}
-            """.formatted(rawSecret),
-            "hydro/" + deviceKey + "/command"
-        );
+            """.formatted(rawSecret));
         log.debug("Awaiting device {} to acknowledge secret change", deviceKey);
       } else {
         Device device = requireDeviceByKey(deviceKey);
@@ -674,13 +642,11 @@ public class DeviceService {
 
       // Announce update via MQTT
       log.info("Announcing OTA update to device {}", device.getKey());
-      mqttGateway.sendRetainedToMqtt(
+      commandGateway.publishAnnounce(device.getKey(),
           """
           {"action":"OTAUpdate","cause":"Manual","binUrl":"%s","version":"%s","sha256":"%s"}
           """.formatted(binUrl, update.version(), update.sha256()),
-          "hydro/" + device.getKey() + "/announce",
-          true
-      );
+          true);
 
       device.setLastOtaUpdateId(update.id());
       toPersist.add(device);

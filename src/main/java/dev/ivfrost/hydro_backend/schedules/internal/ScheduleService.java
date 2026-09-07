@@ -1,6 +1,6 @@
 package dev.ivfrost.hydro_backend.schedules.internal;
 
-import dev.ivfrost.hydro_backend.config.MqttGateway;
+import dev.ivfrost.hydro_backend.config.CommandGateway;
 import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.ScheduleDeviceProvider;
@@ -28,7 +28,7 @@ public class ScheduleService {
   private final ScheduleMapper scheduleMapper;
   private final ConflictService conflictService;
   private final ScheduleDeviceProvider scheduleDeviceProvider;
-  private final MqttGateway mqttGateway;
+  private final CommandGateway commandGateway;
   private final ObjectMapper objectMapper;
 
   /**
@@ -86,12 +86,10 @@ public class ScheduleService {
     schedule.getWindows().forEach(w -> w.setSchedule(schedule));
 
     scheduleRepository.save(schedule);
-    mqttGateway.sendToMqtt(
+    commandGateway.publishCommand(deviceKey,
         """
         {"action": "SetSchedule", "cause":"Manual", "date": "%s", "windows": %s}
-        """.formatted( time, objectMapper.writeValueAsString(request.windows())),
-        "hydro/" + deviceKey + "/command"
-    );
+        """.formatted(time, objectMapper.writeValueAsString(request.windows())));
 
     return enrich(schedule);
   }

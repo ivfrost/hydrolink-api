@@ -2,14 +2,10 @@ package dev.ivfrost.hydro_backend.devices.internal;
 
 import dev.ivfrost.hydro_backend.ApiResponse;
 import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
-import dev.ivfrost.hydro_backend.devices.DeviceAuthRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
-import dev.ivfrost.hydro_backend.devices.MqttAclRequest;
-import dev.ivfrost.hydro_backend.devices.MqttAuthRequest;
-import dev.ivfrost.hydro_backend.tokens.TokenResponse;
 import dev.ivfrost.hydro_backend.util.PageRequestBuilder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -51,31 +47,12 @@ public class DeviceController {
   // ======= INTERNAL & DEVICE ENDPOINTS =======
 
   /**
-   * Webhook for MQTT broker authentication.
-   * This endpoint is called by the MQTT broker to verify the validity of the MQTT token
-   * issued to the client.
-   */
-  @PostMapping("/internal/mqtt/auth")
-  public ResponseEntity<Map<String, Object>> verifyMqttConnection(
-      @Valid @RequestBody MqttAuthRequest req) {
-    try {
-      if ("hydro-api-user".equals(req.username())) {
-        return ResponseEntity.ok(ALLOW_ACL_MAP);
-      }
-      deviceService.verifyMqttConnection(req);
-      return ResponseEntity.ok(ALLOW_ACL_MAP);
-    } catch (Exception e) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(DENY_ACL_MAP);
-    }
-  }
-
-  /**
-   * Device provisioning endpoint.
+   * Registers a device record for a booting ESP32 and issues its ownership secret.
    * Expects a Bearer token in the Authorization header for authentication.
    */
   @Operation(
-      summary = "Internal device provisioning",
-      description = "Provisions a device using an internal Bearer provisioning token."
+      summary = "Register device record (ESP boot)",
+      description = "Registers the application device record and issues an ownership secret. POST, not GET, so a proxy never caches it. Separate from the AWS Thing, which the ESP provisions itself through fleet provisioning on first boot."
   )
   @PostMapping("/internal/devices/provision")
   public ResponseEntity<ApiResponse<DeviceProvisionResponse>> provisionDeviceInternal(
@@ -85,44 +62,6 @@ public class DeviceController {
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.success(HttpStatus.CREATED, "Device provisioned successfully",
             deviceService.provisionDevice(req, authorizationHeader)));
-  }
-
-  /**
-   * Webhook for MQTT broker ACL authorization.
-   * This endpoint is called by the MQTT broker to verify whether a client is authorized
-   * to pub/sub to a specific topic.
-   * The MQTT token contains the allowed topics for the client, and this endpoint checks
-   * whether the requested topic and action (pub/sub) is allowed by the token's claims.
-   */
-  @PostMapping("/internal/mqtt/acl")
-  public ResponseEntity<Map<String, Object>> verifyMqttAcl(
-      @Valid @RequestBody MqttAclRequest req) {
-    // Intercept requests from the API and allow it to bypass ACL checks
-    if ("hydro-api-user".equals(req.username())) {
-      return ResponseEntity.ok(ALLOW_ACL_MAP);
-    }
-    try {
-      boolean allowed = deviceService.verifyMqttAcl(req);
-      if (allowed) {
-        return ResponseEntity.ok(ALLOW_ACL_MAP);
-      }
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(DENY_ACL_MAP);
-    } catch (Exception e) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(DENY_ACL_MAP);
-    }
-  }
-
-  @Operation(
-      summary = "Authenticate device",
-      description = "Authenticates a hardware device using its credentials and returns an MQTT JWT token."
-  )
-  @PostMapping("/internal/devices/auth")
-  public ResponseEntity<ApiResponse<TokenResponse>> authenticateDevice(
-      @Valid @RequestBody DeviceAuthRequest req) {
-    return ResponseEntity.status(HttpStatus.OK)
-        .body(ApiResponse.success(HttpStatus.OK, "Device MQTT auth token retrieved successfully",
-            deviceService.authenticateDevice(req)
-        ));
   }
 
   // ======= ADMIN-ONLY ENDPOINTS =======
@@ -164,8 +103,8 @@ public class DeviceController {
 
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(
-      summary = "Get all provisioned devices (Admin only)",
-      description = "Retrieves all devices provisioned in the system."
+      summary = "Get all device records (Admin only)",
+      description = "Retrieves all device records known to the application (the app-side rows; not the AWS Things, which the devices register through AWS fleet provisioning)."
   )
   @GetMapping("/devices")
   public ResponseEntity<ApiResponse<Page<DeviceResponse>>> getAllDevices(
@@ -181,8 +120,8 @@ public class DeviceController {
 
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(
-      summary = "Provision new device (Admin only)",
-      description = "Provisions a new device in the system."
+      summary = "Register device record (Admin only)",
+      description = "Registers an application device record and issues an ownership secret. POST, not GET, so a proxy never caches it. Separate from the AWS Thing, which the ESP provisions itself through fleet provisioning on first boot."
   )
   @PostMapping("/devices")
   public ResponseEntity<ApiResponse<DeviceProvisionResponse>> provisionDevice(

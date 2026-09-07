@@ -23,6 +23,7 @@
     <minio.version>9.0.3</minio.version>
     <okhttp.version>4.12.0</okhttp.version>
     <okio.version>3.4.0</okio.version>
+    <spring-cloud-aws.version>4.1.1</spring-cloud-aws.version>
   </properties>
 
   <dependencyManagement>
@@ -31,6 +32,13 @@
         <groupId>org.springframework.modulith</groupId>
         <artifactId>spring-modulith-bom</artifactId>
         <version>${spring-modulith.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.awspring.cloud</groupId>
+        <artifactId>spring-cloud-aws-dependencies</artifactId>
+        <version>${spring-cloud-aws.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -77,11 +85,6 @@
       <groupId>io.swagger.core.v3</groupId>
       <artifactId>swagger-annotations</artifactId>
       <version>2.2.41</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.paho</groupId>
-      <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
-      <version>1.2.5</version>
     </dependency>
     <dependency>
       <groupId>org.flywaydb</groupId>
@@ -175,8 +178,12 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.springframework.integration</groupId>
-      <artifactId>spring-integration-mqtt</artifactId>
+      <groupId>io.awspring.cloud</groupId>
+      <artifactId>spring-cloud-aws-starter-sqs</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>iotdataplane</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.modulith</groupId>
@@ -205,7 +212,7 @@
 
   <build>
     <plugins>
-      <plugin>
+      <plugin>L
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
