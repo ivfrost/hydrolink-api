@@ -1,6 +1,6 @@
 package dev.ivfrost.hydro_backend.devices.internal;
 
-import dev.ivfrost.hydro_backend.ApiResponse;
+import dev.ivfrost.hydro_backend.common.ApiResponse;
 import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionRequest;
@@ -12,7 +12,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Positive;
 import java.util.Map;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -42,8 +41,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class DeviceController {
 
   private final DeviceService deviceService;
-  private static final Map<String, Object> ALLOW_ACL_MAP = Map.of("result", "allow");
-  private static final Map<String, Object> DENY_ACL_MAP = Map.of("result", "deny");
 
   // ======= INTERNAL & DEVICE ENDPOINTS =======
 

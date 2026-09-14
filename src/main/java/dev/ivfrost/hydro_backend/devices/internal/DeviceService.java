@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
 import dev.ivfrost.hydro_backend.common.RestResponsePage;
 import dev.ivfrost.hydro_backend.config.DeviceProperties;
 import dev.ivfrost.hydro_backend.config.CommandGateway;
+import dev.ivfrost.hydro_backend.devices.DeviceKeyEncryptionUtil;
 import dev.ivfrost.hydro_backend.devices.SecretRotatedEvent;
 import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceFetchException;
@@ -16,7 +17,6 @@ import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DuplicateMacAddressException;
-import dev.ivfrost.hydro_backend.tokens.DeviceKeyEncriptionUtil;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.Duration;
 import java.time.Instant;
@@ -64,7 +64,7 @@ public class DeviceService {
 
   private final DeviceRepository deviceRepository;
   private final DeviceCacheService deviceCacheService;
-  private final DeviceKeyEncriptionUtil encryptionUtil;
+  private final DeviceKeyEncryptionUtil encryptionUtil;
   private final CacheManager cacheManager;
   private final DeviceMapper deviceMapper;
   private final ObjectMapper objectMapper;
@@ -106,10 +106,11 @@ public class DeviceService {
 
     Device device = deviceMapper.deviceProvisionRequestToDevice(req);
 
-    // Generate, hash and set device secret
-    String rawSecret = DeviceKeyEncriptionUtil.generateRandomString(32);
-    String hashed = encryptionUtil.encrypt(rawSecret);
-    device.setSecret(hashed);
+    // Generate and encrypt the device secret. The fingerprint is a deterministic
+    // HMAC tag used for equality lookup, since the ciphertext is randomized.
+    String rawSecret = DeviceKeyEncryptionUtil.generateRandomString(32);
+    device.setSecret(encryptionUtil.encrypt(rawSecret));
+    device.setSecretFingerprint(encryptionUtil.fingerprint(rawSecret));
     Device saved = deviceRepository.save(device);
 
     // Return device details along with the raw secret
@@ -149,10 +150,11 @@ public class DeviceService {
 
     Device device = deviceMapper.deviceProvisionRequestToDevice(req);
 
-    // Generate, hash and set device secret
-    String rawSecret = DeviceKeyEncriptionUtil.generateRandomString(32);
-    String hashed = encryptionUtil.encrypt(rawSecret);
-    device.setSecret(hashed);
+    // Generate and encrypt the device secret. The fingerprint is a deterministic
+    // HMAC tag used for equality lookup, since the ciphertext is randomized.
+    String rawSecret = DeviceKeyEncryptionUtil.generateRandomString(32);
+    device.setSecret(encryptionUtil.encrypt(rawSecret));
+    device.setSecretFingerprint(encryptionUtil.fingerprint(rawSecret));
 
     // Save device
     deviceRepository.upsert(device);
@@ -195,9 +197,9 @@ public class DeviceService {
   @Transactional
   public DeviceResponse linkDevice(DeviceLinkRequest req, UUID userId) {
 
-    // Fetch unlinked device by secret hash
-    String encryptedInput = encryptionUtil.encrypt(req.secret());
-    Device device = deviceRepository.findBySecret(encryptedInput)
+    // Fetch unlinked device by the deterministic fingerprint of the provided secret
+    String fingerprint = encryptionUtil.fingerprint(req.secret());
+    Device device = deviceRepository.findBySecretFingerprint(fingerprint)
         .orElseThrow(() -> new DeviceNotFoundException("Device not found"));
 
     if (device.getUserId() != null) {
@@ -511,7 +513,7 @@ public class DeviceService {
     @Transactional
     public String regenerateDeviceSecret(String deviceKey, boolean requireAck) {
       requireDeviceByKey(deviceKey);
-      String rawSecret = DeviceKeyEncriptionUtil.generateRandomString(32);
+      String rawSecret = DeviceKeyEncryptionUtil.generateRandomString(32);
       log.debug("Regenerated secret for device {}: {}", deviceKey, rawSecret);
 
       if (requireAck) {
@@ -524,6 +526,7 @@ public class DeviceService {
       } else {
         Device device = requireDeviceByKey(deviceKey);
         device.setSecret(encryptionUtil.encrypt(rawSecret));
+        device.setSecretFingerprint(encryptionUtil.fingerprint(rawSecret));
         deviceRepository.save(device);
         pendingSecretChanges.invalidate(deviceKey);
         log.debug("Device {} secret rotated without ack", deviceKey);
@@ -573,6 +576,7 @@ public class DeviceService {
 
     Device device = requireDeviceByKey(deviceKey);
     device.setSecret(encryptionUtil.encrypt(ackedSecret));
+    device.setSecretFingerprint(encryptionUtil.fingerprint(ackedSecret));
     deviceRepository.save(device);
     pendingSecretChanges.invalidate(deviceKey);
 

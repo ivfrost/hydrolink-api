@@ -14,45 +14,51 @@ services:
       minio:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-stage}
-
-      # User secrets
-      USER_JWT_SECRET: ${USER_JWT_SECRET:-${SERVICE_HEX_32_1}}
-      USER_RECOVERY_SECRET: ${USER_RECOVERY_SECRET:-${SERVICE_HEX_32_2}}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
 
       # Device secrets
       DEVICE_KEY_SECRET: ${DEVICE_KEY_SECRET:-${SERVICE_HEX_32_3}}
       DEVICE_PROVISIONING_SECRET: ${DEVICE_PROVISIONING_SECRET:-${SERVICE_HEX_32_11}}
 
-      # User auth
-      USER_TOKEN_ISSUER: ${USER_TOKEN_ISSUER:-hydro-api}
-      USER_ACCESS_TOKEN_EXPIRATION: ${USER_ACCESS_TOKEN_EXPIRATION:-900000}
-      USER_REFRESH_TOKEN_EXPIRATION: ${USER_REFRESH_TOKEN_EXPIRATION:-2592000000}
+      # OAuth2 Cognito
+      AWS_USER_POOL_ID: ${AWS_USER_POOL_ID}
+      AWS_USER_POOL_CLIENT_ID: ${AWS_USER_POOL_CLIENT_ID}
+      AWS_REGION: ${AWS_REGION}
+
+      # AWS (device status queue + data plane publish)
+      DEVICE_STATUS_QUEUE: ${DEVICE_STATUS_QUEUE}
 
       # Database
-      DB_URL: ${DB_URL:-jdbc:postgresql://postgres:5432/hydrodb-stage}
-      DB_USERNAME: ${DB_USERNAME:-hydro}
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD:-${SERVICE_HEX_32_5}}
 
       # Redis
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-${SERVICE_HEX_32_6}}
 
+      # Storage (MinIO)
+      MINIO_URL: ${MINIO_URL}
+      MINIO_EXT_URL: ${MINIO_EXT_URL}
+      MINIO_DEFAULT_BUCKETS: ${MINIO_DEFAULT_BUCKETS}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-${SERVICE_HEX_32_12}}
+
       # CORS
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://hydro.netoasis.dedyn.io}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
 
       # Seed data
-      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@hydro.netoasis.dedyn.io}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-${SERVICE_HEX_32_8}}
-      SEED_DEVICE1_KEY: ${SEED_DEVICE1_KEY:-HYDRO-AE720F}
-      SEED_DEVICE2_KEY: ${SEED_DEVICE2_KEY:-HYDRO-BB7F1E}
+      SEED_DEVICE1_KEY: ${SEED_DEVICE1_KEY}
+      SEED_DEVICE2_KEY: ${SEED_DEVICE2_KEY}
       SEED_DEVICE1_SECRET: ${SEED_DEVICE1_SECRET:-${SERVICE_HEX_32_9}}
       SEED_DEVICE2_SECRET: ${SEED_DEVICE2_SECRET:-${SERVICE_HEX_32_10}}
 
       # Springdoc
-      SPRINGDOC_API_DOCS_ENABLED: ${SPRINGDOC_API_DOCS_ENABLED:-false}
-      SPRINGDOC_SWAGGER_UI_ENABLED: ${SPRINGDOC_SWAGGER_UI_ENABLED:-false}
+      SPRINGDOC_API_DOCS_ENABLED: ${SPRINGDOC_API_DOCS_ENABLED}
+      SPRINGDOC_SWAGGER_UI_ENABLED: ${SPRINGDOC_SWAGGER_UI_ENABLED}
     networks:
       hydro-network:
         aliases:
@@ -67,12 +73,12 @@ services:
     restart: on-failure:3
     environment:
       POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME:-hydrodb-stage}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-${SERVICE_HEX_32_5}}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}" ]
       start_period: 30s
       interval: 10s
       timeout: 5s
@@ -105,7 +111,7 @@ services:
       MINIO_URL: ${MINIO_URL}
       MINIO_SERVER_URL: ${MINIO_EXT_URL}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-${SERVICE_HEX_32_12}}
       MINIO_DEFAULT_BUCKETS: ${MINIO_DEFAULT_BUCKETS}
     networks:
       - hydro-network

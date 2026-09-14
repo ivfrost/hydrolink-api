@@ -1,33 +1,27 @@
 package dev.ivfrost.hydro_backend.users.internal;
 
-import com.auth0.jwt.interfaces.Claim;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkProvider;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
-import dev.ivfrost.hydro_backend.devices.DeviceMapper;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUnlinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
-import dev.ivfrost.hydro_backend.tokens.JWTUtil;
-import dev.ivfrost.hydro_backend.tokens.TokenPayload;
-import dev.ivfrost.hydro_backend.tokens.TokenResponse;
-import dev.ivfrost.hydro_backend.tokens.UserTokenProvider;
-import dev.ivfrost.hydro_backend.devices.DeviceTopicProvider;
-import dev.ivfrost.hydro_backend.users.AuthResponse;
-import dev.ivfrost.hydro_backend.users.EmailTakenException;
-import dev.ivfrost.hydro_backend.users.UserAuthRequest;
 import dev.ivfrost.hydro_backend.devices.UserDeviceProvider;
+import dev.ivfrost.hydro_backend.users.AuthenticatedUser;
+import dev.ivfrost.hydro_backend.users.CognitoUserSyncService;
+import dev.ivfrost.hydro_backend.users.EmailNotVerifiedException;
+import dev.ivfrost.hydro_backend.users.ReauthenticationRequiredException;
 import dev.ivfrost.hydro_backend.users.UserDisabledException;
 import dev.ivfrost.hydro_backend.users.UserMapper;
-import dev.ivfrost.hydro_backend.users.UserRecoveryRequest;
-import dev.ivfrost.hydro_backend.users.UserRegisterRequest;
 import dev.ivfrost.hydro_backend.users.UserResponse;
 import dev.ivfrost.hydro_backend.users.UserUpdateRequest;
 import dev.ivfrost.hydro_backend.users.UsernameTakenException;
-import jakarta.transaction.Transactional;
+import dev.ivfrost.hydro_backend.users.UserResolutionService;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -35,12 +29,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 @Slf4j
@@ -49,99 +42,10 @@ import org.springframework.util.StringUtils;
 public class UserService {
 
   private final UserRepository userRepository;
-  private final PasswordEncoder passwordEncoder;
-  private final UserTokenProvider userTokenProvider;
   private final UserDeviceProvider userDeviceProvider;
   private final DeviceLinkProvider deviceLinkProvider;
   private final UserMapper userMapper;
-
-  /**
-   * Authenticates a user by email and password.
-   *
-   * @param req the user authentication request DTO
-   * @return {@link AuthResponse} containing the authenticated user and access/refresh tokens
-   * @throws AuthenticationCredentialsNotFoundException if the user is not found
-   * @throws UserDisabledException                          if the user is disabled
-   * @throws BadCredentialsException                    if the password is incorrect
-   */
-  AuthResponse authenticateUser(UserAuthRequest req) {
-    String email = req.email();
-    String password = req.password();
-    User user = requireUserByEmail(email);
-    log.debug("Authenticating user with email: {}", email);
-    if (!user.isEnabled()) {
-      throw new UserDisabledException(email);
-    }
-    if (!passwordEncoder.matches(password, user.getPassword())) {
-      log.debug("Password mismatch for user with email: {}", email);
-      throw new BadCredentialsException("Invalid credentials");
-    }
-    List<TokenResponse> tokens = userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
-        user.getUsername(),
-        user.getEmail(),
-        userMapper.mapRoles(user.getRoles()),
-        user.getId()
-    ));
-    return new AuthResponse(userMapper.userToUserResponse(user), tokens);
-  }
-
-  /**
-   * Registers a new user with specified roles (admin only).
-   *
-   * @param req the user registration request DTO
-   * @param roles the roles to assign to the user (defaults to USER if null)
-   * @return {@link AuthResponse} containing the registered user and recovery tokens
-   * @throws UsernameTakenException if the username is already taken
-   */
-  @Transactional
-  AuthResponse addUser(UserRegisterRequest req, List<UserRole.Role> roles) {
-    if (isUserAuthenticated()) {
-      throw new IllegalStateException("Cannot register new user while authenticated.");
-    }
-    if (userRepository.findByUsername(req.username()).isPresent()) {
-      throw new UsernameTakenException(req.username());
-    }
-    if (userRepository.findByEmail(req.email()).isPresent()) {
-      throw new EmailTakenException(req.email());
-    }
-    User user = userMapper.userRegisterRequestToUser(req);
-    user.setPassword(passwordEncoder.encode(req.password()));
-    // MapsId guarantees that the userId in UserRole is populated with the correct value
-    user.getRoles().addAll(
-        roles.stream()
-            .map(role -> new UserRole(user, role))
-            .toList()
-    );
-    User savedUser = userRepository.save(user);
-
-    List<TokenResponse> recoveryTokens = userTokenProvider.generateRecoveryCodes(savedUser.getId());
-    List<TokenResponse> accessRefreshTokens = userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
-        savedUser.getUsername(),
-        savedUser.getEmail(),
-        userMapper.mapRoles(user.getRoles()),
-        savedUser.getId()
-    ));
-    List<TokenResponse> allTokens = Stream.concat(recoveryTokens.stream(), accessRefreshTokens.stream()).toList();
-    return new AuthResponse(userMapper.userToUserResponse(savedUser), allTokens);
-  }
-
-  /**
-   * Registers a new user with default roles (self-registration).
-   *
-   * <p>- First user is assigned ADMIN and USER roles.
-   *
-   * @param req the user registration request DTO
-   * @return {@link AuthResponse} containing the registered user and recovery tokens
-   * @throws UsernameTakenException if the username is already taken
-   */
-  @Transactional
-  AuthResponse addUser(UserRegisterRequest req) {
-    boolean isFirstUser = userRepository.count() == 0;
-    List<UserRole.Role> roles = isFirstUser
-        ? List.of(UserRole.Role.ADMIN, UserRole.Role.USER)
-        : List.of(UserRole.Role.USER);
-    return addUser(req, roles);
-  }
+  private final CognitoUserSyncService cognitoUserSyncService;
 
   /**
    * Retrieves the authenticated user
@@ -227,71 +131,54 @@ public class UserService {
   }
 
   /**
-   * Resets the user's password using a recovery token.
-   *
-   * <p>Validates the recovery token and ensures it belongs to the provided email. If valid,
-   * updates the user's password and invalidates the used token.
-   *
-   * @param req the user recovery request DTO containing email, recovery code, and new password
-   * @throws AuthenticationCredentialsNotFoundException if the user is not found
-   * @throws UserDisabledException                      if the user is disabled
-   * @throws BadCredentialsException                    if the recovery code is invalid
-   */
-  @Transactional
-  void resetPassword(UserRecoveryRequest req) {
-    User user = requireUserByEmail(req.email());
-    if (!user.isEnabled()) {
-      throw new UserDisabledException(user.getId());
-    }
-    if (!userTokenProvider.isTokenValidForUserId(req.recoveryCode(), user.getId())) {
-      throw new BadCredentialsException("Invalid recovery code.");
-    }
-
-    user.setPassword(passwordEncoder.encode(req.newPassword()));
-    userRepository.save(user);
-  }
-
-  /**
    * Updates the authenticated user's account settings.
    *
    * @param req the user update request DTO containing fields to update
    * @return {@link UserResponse} containing updated user profile information
-   * @throws IllegalStateException                      if no authenticated user is found
+   * @throws IllegalStateException                      if no authenticated user is found, or if
+   *                                                      auth_time is missing from the provided JWT
    * @throws AuthenticationCredentialsNotFoundException if the user is not found
    * @throws UserDisabledException                      if the user is disabled
+   * @throws ReauthenticationRequiredException          if the user's last authentication is too old
+   *                                                      to change email
    */
   @Transactional
-  UserResponse updateCurrentUser(UserUpdateRequest req) {
+  UserResponse updateCurrentUser(UserUpdateRequest req, Jwt jwt) {
     User user = getCurrentUser();
+    if (!user.isEnabled()) {
+      throw new UserDisabledException("Account is disabled.");
+    }
+    if (!user.isEmailVerified()) {
+      throw new EmailNotVerifiedException("Verify your email before updating your profile");
+    }
 
     // Normalize inputs
     String cleanEmail = StringUtils.hasText(req.email()) ? req.email().trim().toLowerCase() : null;
-    boolean isCurrentPasswordProvided = StringUtils.hasText(req.currentPassword());
-    boolean isChangingPassword = StringUtils.hasText(req.password());
     boolean isChangingEmail = cleanEmail != null && !cleanEmail.equals(user.getEmail());
     boolean isChangingUsername = StringUtils.hasText(req.username()) && !req.username().equals(user.getUsername());
 
-    // Validate email and password changes
-    if (isChangingPassword || isChangingEmail) {
-      if (!isCurrentPasswordProvided) {
-        throw new IllegalArgumentException("Current password must be provided to update credentials.");
+    if (isChangingEmail) {
+      Long authTimeEpoch = jwt.getClaim("auth_time");
+      if (Objects.isNull(authTimeEpoch)) {
+        throw new IllegalStateException("auth_time is missing from the provided JWT");
+      }
+      Instant authTime = Instant.ofEpochSecond(authTimeEpoch);
+      if (Instant.now().minus(10, ChronoUnit.MINUTES).isAfter(authTime)) {
+        throw new ReauthenticationRequiredException();
       }
 
-      if (!passwordEncoder.matches(req.currentPassword(), user.getPassword())) {
-        log.debug("Password mismatch for user with email: {}", user.getEmail());
-        throw new BadCredentialsException("Invalid credentials");
+      String sub = jwt.getSubject();
+      if (Objects.isNull(sub)) {
+        throw new IllegalStateException("sub is missing from the provided JWT");
       }
 
-      if (isChangingPassword) {
-        user.setPassword(passwordEncoder.encode(req.password()));
+      if (isEmailClaimedByAnotherUser(cleanEmail, user.getId())) {
+        throw new IllegalArgumentException("Email address is already in use by another account.");
       }
 
-      if (isChangingEmail) {
-        if (userRepository.existsByEmail(cleanEmail)) {
-          throw new IllegalArgumentException("Email address is already in use by another account.");
-        }
-        user.setEmail(cleanEmail);
-      }
+      cognitoUserSyncService.syncUserEmail(sub, cleanEmail);
+      user.setPendingEmail(cleanEmail);
+      user.setPendingEmailSetAt(Instant.now());
     }
 
     // If changing username, ensure the new username is not already in use and update it
@@ -308,28 +195,6 @@ public class UserService {
 
     // Hibernate dirty checking handles updates
     return userMapper.userToUserResponse(user);
-  }
-
-  /**
-   * Refreshes access and refresh tokens using a valid refresh token.
-   *
-   * @param refreshToken the refresh token to validate and use for generating new tokens
-   * @return a list of {@link TokenResponse} containing new access and refresh tokens
-   * @throws BadCredentialsException if the refresh token does not belong to the authenticated user
-   */
-  List<TokenResponse> refreshTokens(String refreshToken) {
-    Map<String, Claim> claims = userTokenProvider.validateTokenAndRetrieveClaims(refreshToken);
-    String tokenUserId = claims.get("userId").asString();
-
-    User user = userRepository.findById(UUID.fromString(tokenUserId))
-        .orElseThrow(() -> new BadCredentialsException("User not found"));
-
-    return userTokenProvider.generateAccessAndRefreshTokens(new TokenPayload(
-        user.getUsername(),
-        user.getEmail(),
-        userMapper.mapRoles(user.getRoles()),
-        user.getId()
-    ));
   }
 
   /**
@@ -388,15 +253,29 @@ public class UserService {
   /*====== HELPERS ======*/
 
   /**
-   * Checks if a user is authenticated in the security context.
-   *
-   * @return true if a user is authenticated, false otherwise
+   * True when the address is already taken by a different user, either as a
+   * committed email or as a still-valid pending change. An expired pending
+   * email no longer claims the address, and is cleared here so it stops
+   * occupying the unique constraint and blocking the new claim.
    */
-  public boolean isUserAuthenticated() {
-    SecurityContext context = SecurityContextHolder.getContext();
-    var auth = context.getAuthentication();
-    return auth != null && auth.isAuthenticated()
-        && !(auth instanceof AnonymousAuthenticationToken);
+  private boolean isEmailClaimedByAnotherUser(String email, UUID currentUserId) {
+    Optional<User> byEmail = userRepository.findByEmail(email);
+    if (byEmail.isPresent() && !byEmail.get().getId().equals(currentUserId)) {
+      return true;
+    }
+    Optional<User> byPending = userRepository.findByPendingEmail(email);
+    if (byPending.isEmpty() || byPending.get().getId().equals(currentUserId)) {
+      return false;
+    }
+    User holder = byPending.get();
+    if (UserResolutionService.pendingEmailExpired(holder.getPendingEmailSetAt())) {
+      log.info("Clearing expired pending email {} held by user {}", email, holder.getId());
+      holder.setPendingEmail(null);
+      holder.setPendingEmailSetAt(null);
+      userRepository.save(holder);
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -413,19 +292,6 @@ public class UserService {
   }
 
   /**
-   * Retrieves a user by email, throwing an exception if not found.
-   *
-   * @param email the user email
-   * @return {@link User} entity
-   * @throws AuthenticationCredentialsNotFoundException if the user is not found
-   */
-  private User requireUserByEmail(String email) {
-    return userRepository.findByEmail(email)
-        .orElseThrow(() -> new AuthenticationCredentialsNotFoundException(
-            "User with email " + email + " not found."));
-  }
-
-  /**
    * Retrieves the ID of the currently authenticated user.
    *
    * @return the user ID
@@ -437,6 +303,10 @@ public class UserService {
         || authentication instanceof AnonymousAuthenticationToken) {
       throw new AuthenticationCredentialsNotFoundException("No authenticated user found.");
     }
-    return UUID.fromString(authentication.getName());
+    Object principal = authentication.getPrincipal();
+    if (principal instanceof AuthenticatedUser authenticatedUser) {
+      return authenticatedUser.id();
+    }
+    throw new AuthenticationCredentialsNotFoundException("No authenticated user found.");
   }
 }

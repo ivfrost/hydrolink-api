@@ -1,6 +1,6 @@
 package dev.ivfrost.hydro_backend.devices.internal;
 
-import dev.ivfrost.hydro_backend.ApiResponse;
+import dev.ivfrost.hydro_backend.common.ApiResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
 import dev.ivfrost.hydro_backend.devices.PinMapper;
 import dev.ivfrost.hydro_backend.devices.PinRequest;

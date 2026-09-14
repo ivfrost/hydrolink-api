@@ -5,8 +5,7 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 
 /**
  * Forces class-based (CGLIB) proxies for all Spring AOP infrastructure to avoid JDK dynamic proxies
- * wrapping filters (e.g., {@link JWTFilter}) which can break GenericFilterBean initialization on
- * startup.
+ * wrapping filters, which can break GenericFilterBean initialization on startup.
  */
 @Configuration
 @EnableAspectJAutoProxy(proxyTargetClass = true)

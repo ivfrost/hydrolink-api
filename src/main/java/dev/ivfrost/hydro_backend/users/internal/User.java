@@ -53,10 +53,6 @@ public class User implements Serializable {
   @Column(unique = true, nullable = false)
   private String username;
 
-  @Size(max = 255)
-  @Column(nullable = false)
-  private String password;
-
   @Size(min = 5, max = 40)
   @Column(name = "full_name", nullable = false)
   private String fullName;
@@ -66,6 +62,16 @@ public class User implements Serializable {
   @Column(unique = true, nullable = false)
   private String email;
 
+  @Email(message = "Invalid email format")
+  @Size(min = 8, max = 50)
+  @Column(name = "pending_email")
+  private String pendingEmail;
+
+  @Column(name = "pending_email_set_at", columnDefinition = "TIMESTAMP WITH TIME ZONE")
+  private Instant pendingEmailSetAt;
+
+  @Column(name = "email_verified", nullable = false)
+  private boolean emailVerified;
 
   @Size(max = 20)
   @Column(name = "phone_number")

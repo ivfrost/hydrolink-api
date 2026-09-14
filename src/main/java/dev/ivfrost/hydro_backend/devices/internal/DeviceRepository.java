@@ -16,14 +16,15 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 
   @Modifying
   @Query(value = """
-    INSERT INTO devices (mac_address, key, firmware, technical_name, secret, created_at, updated_at)
-    VALUES (:#{#d.macAddress}, :#{#d.key}, :#{#d.firmware}, :#{#d.technicalName}, :#{#d.secret}, NOW(), NOW())
+    INSERT INTO devices (mac_address, key, firmware, technical_name, secret, secret_fingerprint, created_at, updated_at)
+    VALUES (:#{#d.macAddress}, :#{#d.key}, :#{#d.firmware}, :#{#d.technicalName}, :#{#d.secret}, :#{#d.secretFingerprint}, NOW(), NOW())
     ON CONFLICT (mac_address)
     DO UPDATE SET
       key = EXCLUDED.key,
       firmware = EXCLUDED.firmware,
       technical_name = EXCLUDED.technical_name,
       secret = EXCLUDED.secret,
+      secret_fingerprint = EXCLUDED.secret_fingerprint,
       updated_at = NOW()
     """, nativeQuery = true)
   void upsert(@Param("d") Device device);
@@ -32,7 +33,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 
   List<Device> findAllByTechnicalName(String technicalName);
 
-  Optional<Device> findBySecret(String secret);
+  Optional<Device> findBySecretFingerprint(String secretFingerprint);
 
   Optional<Device> findByKey(String key);
 

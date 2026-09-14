@@ -13,15 +13,9 @@ import org.springframework.util.AntPathMatcher;
 public class EndpointRegistry {
 
   private static final List<String> APP_PUBLIC = List.of(
-      "/v1/users",
-      "/v1/users/auth",
-      "/v1/users/auth/refresh",
-      "/v1/users/recover",
       "/v1/users/validate/**",
-      "/v1/users/password/reset",
       "/v1/validation/**",
-      "/actuator/**",
-      "/v1/storage/files/**" // Uploads require auth at method level
+      "/actuator/**"
   );
   private static final List<String> SWAGGER = List.of(
       "/swagger-ui.html",
@@ -36,6 +30,7 @@ public class EndpointRegistry {
   private static final List<String> APP_AUTHENTICATED = List.of(
       "/v1/users/**",
       "/v1/me/**",
+      "/v1/verify-sync",
       "/v1/devices/**"
   );
   private static final List<String> H2_CONSOLE = List.of(

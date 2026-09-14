@@ -1,49 +1,60 @@
 package dev.ivfrost.hydro_backend;
 
 import dev.ivfrost.hydro_backend.config.SeedProperties;
+import dev.ivfrost.hydro_backend.devices.DeviceKeyEncryptionUtil;
 import dev.ivfrost.hydro_backend.devices.internal.Device;
 import dev.ivfrost.hydro_backend.devices.internal.DeviceRepository;
-import dev.ivfrost.hydro_backend.tokens.DeviceKeyEncriptionUtil;
+import dev.ivfrost.hydro_backend.users.CognitoUserSyncService;
 import dev.ivfrost.hydro_backend.users.internal.User;
 import dev.ivfrost.hydro_backend.users.internal.UserRepository;
 import dev.ivfrost.hydro_backend.users.internal.UserRole;
 import java.time.Instant;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @RequiredArgsConstructor
 @Component
+@Profile("dev")
 public class AppDataInit implements ApplicationRunner {
 
   private final UserRepository userRepository;
-  private final PasswordEncoder passwordEncoder;
   private final DeviceRepository deviceRepository;
-  private final DeviceKeyEncriptionUtil encryptionUtil;
+  private final DeviceKeyEncryptionUtil encryptionUtil;
+  private final CognitoUserSyncService cognitoUserSyncService;
   private final SeedProperties seedProperties;
 
-  // Seed the database with an admin user if it doesn't exist
+  // Seed the database with an admin user if it doesn't exist. Identity lives in
+  // Cognito now, so the seed creates the Cognito user (dev only) and stores the
+  // returned sub on the local row.
   @Override
   public void run(@NonNull ApplicationArguments args) {
-
-    if (userRepository.findByUsername("admin").isEmpty()) {
-      User adminUser = User.builder()
-          .username("admin")
-          .fullName("Admin User")
-          .password(passwordEncoder.encode(seedProperties.adminPassword()))
-          .email(seedProperties.adminEmail())
-          .createdAt(Instant.now())
-          .updatedAt(Instant.now())
-          .build();
-      adminUser.getRoles().add(new UserRole(adminUser, UserRole.Role.ADMIN));
-      userRepository.save(adminUser);
+    if (userRepository.findByUsername("admin").isPresent()) {
+      return;
     }
+
+    String sub = cognitoUserSyncService.ensureDevUser(
+        seedProperties.adminEmail(), seedProperties.adminPassword());
+
+    User adminUser = User.builder()
+        .sub(sub)
+        .username("admin")
+        .fullName("Admin User")
+        .email(seedProperties.adminEmail())
+        .emailVerified(true)
+        .createdAt(Instant.now())
+        .updatedAt(Instant.now())
+        .build();
+    adminUser.getRoles().add(new UserRole(adminUser, UserRole.Role.ADMIN));
+    userRepository.save(adminUser);
+    log.info("Seeded dev admin user bound to Cognito sub {}", sub);
   }
 
   // Only on non-prod: Seed the database with two devices if they don't exist
@@ -57,6 +68,7 @@ public class AppDataInit implements ApplicationRunner {
             .macAddress("00:11:22:33:44:55")
             .firmware("1.0.0")
             .secret(encryptionUtil.encrypt(seedProperties.device1Secret()))
+            .secretFingerprint(encryptionUtil.fingerprint(seedProperties.device1Secret()))
             .technicalName("hydro-device-1")
             .friendlyName("Living Room")
             .locationLabel("Living Room")
@@ -68,6 +80,7 @@ public class AppDataInit implements ApplicationRunner {
             .key(seedProperties.device2Key())
             .macAddress("66:77:88:99:AA:BB")
             .secret(encryptionUtil.encrypt(seedProperties.device2Secret()))
+            .secretFingerprint(encryptionUtil.fingerprint(seedProperties.device2Secret()))
             .firmware("1.0.0")
             .technicalName("hydro-device-2")
             .friendlyName("Kitchen")
@@ -78,4 +91,3 @@ public class AppDataInit implements ApplicationRunner {
     };
   }
 }
-

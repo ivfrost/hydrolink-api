@@ -1,6 +1,6 @@
 package dev.ivfrost.hydro_backend.config;
 
-import dev.ivfrost.hydro_backend.ApiResponse;
+import dev.ivfrost.hydro_backend.common.ApiResponse;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
