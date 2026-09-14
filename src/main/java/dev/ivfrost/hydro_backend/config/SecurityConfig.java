@@ -2,16 +2,13 @@ package dev.ivfrost.hydro_backend.config;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
-import dev.ivfrost.hydro_backend.tokens.JWTUtil;
-import dev.ivfrost.hydro_backend.users.MyUserDetailsService;
+import dev.ivfrost.hydro_backend.users.CognitoJwtAuthenticationConverter;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.List;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -24,10 +21,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HttpBasicConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.factory.PasswordEncoderFactories;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -35,22 +29,18 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Slf4j
 @Configuration
-@AllArgsConstructor
 @EnableConfigurationProperties(SecurityConfig.CorsProperties.class)
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-
-  private final MyUserDetailsService userDetailsService;
-  private final JWTUtil jwtUtil;
-  private final ApplicationEventPublisher events;
 
   @ConfigurationProperties(prefix = "cors")
   public record CorsProperties(List<String> allowedOrigins) {}
 
   @Bean
   @Order(2)
-  public SecurityFilterChain securityFilterChain(final HttpSecurity http, Environment environment) {
+  public SecurityFilterChain securityFilterChain(final HttpSecurity http, Environment environment,
+      CognitoJwtAuthenticationConverter cognitoJwtAuthenticationConverter) {
     log.info("Configuring security filter chain...");
     http.csrf(AbstractHttpConfigurer::disable)
         .httpBasic(HttpBasicConfigurer::disable)
@@ -62,9 +52,7 @@ public class SecurityConfig {
             h.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable);
           }
         })
-        // Run JWTFilter in place of UsernamePasswordAuthenticationFilter
-        .addFilterBefore(new JWTFilter(userDetailsService, jwtUtil, events, environment),
-            UsernamePasswordAuthenticationFilter.class)
+        .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(cognitoJwtAuthenticationConverter)))
         .authorizeHttpRequests(req -> req
             .requestMatchers(EndpointRegistry.getPublicEndpoints(environment))
             .permitAll()
@@ -72,7 +60,6 @@ public class SecurityConfig {
             .hasAnyRole("USER", "ADMIN")
             .anyRequest()
             .authenticated())
-        .userDetailsService(this.userDetailsService)
         // Return 401 instead of redirecting to login page for unauthorized requests
         .exceptionHandling(
             e -> e.authenticationEntryPoint(
@@ -95,12 +82,6 @@ public class SecurityConfig {
         .authorizeHttpRequests(req -> req.anyRequest().permitAll());
 
     return http.build();
-  }
-
-  // Conform to the best password encoding practices (bcrypt)
-  @Bean
-  PasswordEncoder passwordEncoder() {
-    return PasswordEncoderFactories.createDelegatingPasswordEncoder();
   }
 
   // Provide the CorsConfigurationSource bean referenced by http.cors(withDefaults()).

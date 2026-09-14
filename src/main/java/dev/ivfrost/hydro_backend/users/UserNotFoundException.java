@@ -1,4 +1,4 @@
-package dev.ivfrost.hydro_backend.users.internal;
+package dev.ivfrost.hydro_backend.users;
 
 import java.util.UUID;
 
@@ -8,8 +8,8 @@ public class UserNotFoundException extends RuntimeException {
     super("User with ID " + userId + " not found.");
   }
 
-  public UserNotFoundException(String email) {
-    super("User with email '" + email + "' not found.");
+  public UserNotFoundException(String message) {
+    super(message);
   }
 
 }

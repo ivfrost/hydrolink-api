@@ -1,6 +1,6 @@
 package dev.ivfrost.hydro_backend.storage.internal;
 
-import dev.ivfrost.hydro_backend.ApiResponse;
+import dev.ivfrost.hydro_backend.common.ApiResponse;
 import dev.ivfrost.hydro_backend.storage.DownloadedFile;
 import dev.ivfrost.hydro_backend.storage.EmptyFileException;
 import dev.ivfrost.hydro_backend.storage.OtaUpdateService;
@@ -126,6 +126,7 @@ public class StorageController {
     );
   }
 
+  @PreAuthorize("isAuthenticated()")
   @Operation(
       summary = "Stream / Download a file",
       description = "Fetches a file from private storage using its key and streams it directly to the client."

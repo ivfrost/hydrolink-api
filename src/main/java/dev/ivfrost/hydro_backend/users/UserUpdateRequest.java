@@ -1,6 +1,5 @@
 package dev.ivfrost.hydro_backend.users;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
@@ -11,15 +10,6 @@ public record UserUpdateRequest(
     @Schema(description = "The username of the user", example = "test_user", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
     @Size(min = 5, max = 20)
     String username,
-
-    @Schema(description = "The new password of the user", example = "new_secure_password", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-    @Size(min = 8, max = 42)
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-    String password,
-
-    @Schema(description = "The current password of the user", example = "current_password", requiredMode = Schema.RequiredMode.REQUIRED)
-    @Size(min = 8, max = 42)
-    String currentPassword,
 
     @Schema(description = "The full name of the user", example = "Test User Updated", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
     @Size(min = 6, max = 40)

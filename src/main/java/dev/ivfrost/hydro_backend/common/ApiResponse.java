@@ -1,4 +1,4 @@
-package dev.ivfrost.hydro_backend;
+package dev.ivfrost.hydro_backend.common;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDateTime;
