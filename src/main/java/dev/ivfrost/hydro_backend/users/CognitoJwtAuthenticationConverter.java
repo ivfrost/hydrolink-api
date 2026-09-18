@@ -1,8 +1,5 @@
 package dev.ivfrost.hydro_backend.users;
 
-import dev.ivfrost.hydro_backend.users.internal.User;
-import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
@@ -20,15 +17,12 @@ public class CognitoJwtAuthenticationConverter implements Converter<Jwt, Abstrac
   @Override
   public AbstractAuthenticationToken convert(Jwt jwt) {
     String sub = jwt.getSubject();
-    User user = userResolutionService.resolveUser(sub);
+    if (sub == null) {
+      throw new IllegalStateException("sub in the ID JWT token cannot be null");
+    }
+    AuthenticatedUser principal = userResolutionService.resolveAuthenticatedUser(sub);
 
-    Set<String> roles = user.getRoles().stream()
-        .map(userRole -> userRole.getRole().name())
-        .collect(Collectors.toUnmodifiableSet());
-
-    AuthenticatedUser principal = new AuthenticatedUser(user.getId(), sub, user.getUsername(), roles);
-
-    return new UsernamePasswordAuthenticationToken(principal, jwt, roles.stream()
+    return new UsernamePasswordAuthenticationToken(principal, jwt, principal.roles().stream()
         .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
         .toList());
   }

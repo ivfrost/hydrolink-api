@@ -200,15 +200,15 @@ public class UserService {
   /**
    * Links a device to the currently authenticated user.
    */
-  DeviceResponse linkDeviceToCurrentUser(DeviceLinkRequest req) {
-    return deviceLinkProvider.linkDevice(req, getCurrentUserId());
+  DeviceResponse linkDeviceToCurrentUser(DeviceLinkRequest req, String sub, UUID userId) {
+    return deviceLinkProvider.linkDevice(req, sub, userId);
   }
 
   /*
    * Unlink a device from the currently authenticated user.
    */
-  void unlinkDeviceFromCurrentUser(DeviceUnlinkRequest req) {
-    deviceLinkProvider.unlinkDevice(req, getCurrentUserId());
+  void unlinkDeviceFromCurrentUser(DeviceUnlinkRequest req, String sub, UUID userId) {
+    deviceLinkProvider.unlinkDevice(req, sub, userId);
   }
 
   /**

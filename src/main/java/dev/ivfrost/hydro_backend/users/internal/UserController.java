@@ -5,6 +5,7 @@ import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUnlinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
+import dev.ivfrost.hydro_backend.users.AuthenticatedUser;
 import dev.ivfrost.hydro_backend.users.UserMapper;
 import dev.ivfrost.hydro_backend.users.UserResolutionService;
 import dev.ivfrost.hydro_backend.users.UserResponse;
@@ -28,6 +29,7 @@ import org.springframework.data.domain.Sort.Direction;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
@@ -79,8 +81,9 @@ public class UserController {
   )
   @PostMapping("/me/devices/link")
   public ResponseEntity<ApiResponse<DeviceResponse>> linkDeviceToCurrentUser(
+      @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
       @Valid @RequestBody DeviceLinkRequest req) {
-    DeviceResponse updatedDevice = userService.linkDeviceToCurrentUser(req);
+    DeviceResponse updatedDevice = userService.linkDeviceToCurrentUser(req, authenticatedUser.sub(), authenticatedUser.id());
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device linked successfully", updatedDevice));
   }
@@ -91,8 +94,8 @@ public class UserController {
   )
   @DeleteMapping("/me/devices/unlink")
   public ResponseEntity<ApiResponse<Void>> unlinkDeviceFromCurrentUser(
-      @Valid @RequestBody DeviceUnlinkRequest req) {
-    userService.unlinkDeviceFromCurrentUser(req);
+      @Valid @RequestBody DeviceUnlinkRequest req, @AuthenticationPrincipal AuthenticatedUser authenticatedUser) {
+    userService.unlinkDeviceFromCurrentUser(req, authenticatedUser.sub(), authenticatedUser.id());
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device unlinked successfully"));
   }
@@ -151,10 +154,10 @@ public class UserController {
   )
   @PatchMapping(value = "/me")
   public ResponseEntity<ApiResponse<UserResponse>> updateCurrentUser(
-      @Valid @RequestBody UserUpdateRequest userUpdateRequest, @AuthenticationPrincipal Jwt jwt) {
+      @Valid @RequestBody UserUpdateRequest userUpdateRequest, Authentication authentication) {
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "User profile updated successfully",
-            userService.updateCurrentUser(userUpdateRequest, jwt)));
+            userService.updateCurrentUser(userUpdateRequest, (Jwt) authentication.getCredentials())));
   }
 
   @Operation(
@@ -164,8 +167,8 @@ public class UserController {
           + "local row is created or bound before other requests."
   )
   @PostMapping("/verify-sync")
-  public ResponseEntity<ApiResponse<UserResponse>> syncVerification(@AuthenticationPrincipal Jwt jwt) {
-    User user = userResolutionService.syncVerificationState(jwt.getSubject());
+  public ResponseEntity<ApiResponse<UserResponse>> syncVerification(@AuthenticationPrincipal AuthenticatedUser authenticatedUser) {
+    User user = userResolutionService.syncVerificationState(authenticatedUser.sub());
     return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,
         "User email verified successfully", userMapper.userToUserResponse(user)));
   }

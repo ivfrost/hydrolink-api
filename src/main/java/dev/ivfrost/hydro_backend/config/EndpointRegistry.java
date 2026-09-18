@@ -18,14 +18,14 @@ public class EndpointRegistry {
       "/actuator/**"
   );
   private static final List<String> SWAGGER = List.of(
+      "/api-docs",
+      "/api-docs/**",
+      "/api-docs-ui",
+      "/api-docs-ui/**",
       "/swagger-ui.html",
       "/swagger-ui/**",
-      "/api-docs",
-      "/api-docs/**",
-      "/api-docs",
-      "/api-docs/**",
-      "/api-docs.yaml",
-      "/api-docs.yaml/**"
+      "/api-docs.yaml/**",
+      "/webjars/**"
   );
   private static final List<String> APP_AUTHENTICATED = List.of(
       "/v1/users/**",

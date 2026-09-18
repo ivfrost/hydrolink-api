@@ -46,4 +46,6 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
   @Query("SELECT d FROM Device d LEFT JOIN FETCH d.pins WHERE d.userId = :userId")
   Page<Device> findAllByUserIdWithPins(@Param("userId") UUID userId, Pageable pageable);
 
+  Optional<Device> findByKeyAndUserId(String key, UUID userId);
+  boolean existsByKeyAndUserSub(String key, String userSub);
 }

@@ -12,7 +12,8 @@ public record DeviceLinkRequest(
     @Schema(example = "bc3e9dbdf08d73e760f00249da44dd68", description = "The secret used to link the device record to the user account. Issued when the device record is registered in the application, independent of the AWS Thing provisioning.")
     @NotBlank
     @Size(max = 32)
-    String secret) {
+    String secret
+    ) {
 
 }
 

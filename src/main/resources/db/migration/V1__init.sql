@@ -29,6 +29,7 @@ CREATE TABLE devices
     updated_at            TIMESTAMP(6) WITH TIME ZONE DEFAULT NOW() NOT NULL,
     linked_at             TIMESTAMP(6) WITH TIME ZONE,
     user_id               UUID,
+    user_sub              VARCHAR(255),
     display_order         BIGINT,
     last_ota_update_id    BIGINT,
     CONSTRAINT pk_devices PRIMARY KEY (id)
