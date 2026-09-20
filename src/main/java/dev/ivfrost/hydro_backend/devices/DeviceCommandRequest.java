@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.List;
@@ -41,10 +42,10 @@ public record DeviceCommandRequest(
     DeviceCommandAction action,
 
     @Schema(
-        description = "Target station on the device",
-        example = "1",
+        description = "Target station on the device. Station ids are zero-based.",
+        example = "0",
         requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-    @Positive
+    @PositiveOrZero
     Integer stationId,
 
     @Schema(

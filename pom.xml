@@ -189,6 +189,12 @@
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
+      <artifactId>cognitoidentity</artifactId>
+      <version>2.54.17</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
       <artifactId>iotdataplane</artifactId>
     </dependency>
     <dependency>

@@ -3,7 +3,6 @@ package dev.ivfrost.hydro_backend.devices.internal;
 import dev.ivfrost.hydro_backend.common.ApiResponse;
 import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceCommandRequest;
-import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
@@ -124,22 +123,6 @@ public class DeviceController {
   }
 
   // ======= ADMIN-ONLY ENDPOINTS =======
-
-  @PreAuthorize("hasRole('ADMIN')")
-  @Operation(
-      summary = "Link device to user by user ID (Admin only)",
-      description = "Links a device to a specific user by their unique ID using the device's secret as ownership proof."
-  )
-  @PostMapping("/users/{userId}/devices/link")
-  public ResponseEntity<ApiResponse<Void>> linkDeviceById(
-      @Valid @RequestBody DeviceLinkRequest linkDeviceRequest,
-      @Parameter(description = "Target user ID")
-      @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
-      @PathVariable UUID userId) {
-    deviceService.linkDevice(linkDeviceRequest, authenticatedUser.sub(), userId);
-    return ResponseEntity.status(HttpStatus.OK)
-        .body(ApiResponse.success(HttpStatus.OK, "Device linked to user successfully"));
-  }
 
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(

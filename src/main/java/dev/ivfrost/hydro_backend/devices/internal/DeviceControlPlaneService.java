@@ -39,15 +39,21 @@ public class DeviceControlPlaneService {
           .policyDocument(policyDocument)
           .build());
     } catch (ResourceAlreadyExistsException _) {
-      // Re-provisioning the same device key: publish the current document as a new
-      // default version so an older policy on an already-provisioned device is updated
-      // rather than frozen at whatever it was when the device first appeared.
+      // Policy already exists (re-provision): push the current document as a new default
+      // version, or the device keeps whatever policy it got when it first appeared.
       publishPolicyVersion(policyName, policyDocument);
     }
   }
 
-  /** Builds the read-only policy for one device: connect as the identity, subscribe to its topics. */
+  /**
+   * Read-only policy for one device: connect as the identity, subscribe to that device's
+   * topics. The app never publishes; writes go through the API.
+   */
   private String policyDocument(String deviceKey) {
+    String topic = "arn:aws:iot:" + region + ":" + accountId + ":topic/hydro/" + deviceKey + "/";
+    String topicFilter =
+        "arn:aws:iot:" + region + ":" + accountId + ":topicfilter/hydro/" + deviceKey + "/";
+
     return """
       {
         "Version": "2012-10-17",
@@ -63,18 +69,25 @@ public class DeviceControlPlaneService {
             "Effect": "Allow",
             "Action": ["iot:Subscribe", "iot:Receive"],
             "Resource": [
-              "arn:aws:iot:%s:%s:topicfilter/hydro/%s/*",
-              "arn:aws:iot:%s:%s:topic/hydro/%s/*"
+              "%sstatus",
+              "%slogs",
+              "%sannounce",
+              "%sstatus",
+              "%slogs",
+              "%sannounce"
             ]
           }
         ]
       }
-      """.formatted(region, accountId, region, accountId, deviceKey, region, accountId, deviceKey);
+      """.formatted(
+        region, accountId,
+        topicFilter, topicFilter, topicFilter,
+        topic, topic, topic);
   }
 
   /**
-   * Publishes the document as a new default version, pruning the oldest non-default
-   * version first because AWS IoT keeps at most five versions per policy.
+   * Publishes the document as a new default version. AWS keeps at most five versions,
+   * so the oldest non-default is pruned first.
    */
   private void publishPolicyVersion(String policyName, String policyDocument) {
     ListPolicyVersionsResponse versions = iotClient.listPolicyVersions(
@@ -102,9 +115,8 @@ public class DeviceControlPlaneService {
   }
 
   /**
-   * Creates the device policy if missing, then attaches it to the identity. Idempotent:
-   * safe to call on link even when the policy was already created at provision time, and
-   * it covers rows that never went through provisioning (for example seeded devices).
+   * Creates the device policy if missing, then attaches it. Covers rows that never went
+   * through provisioning (seeded devices) and retries after a failed create.
    */
   public void ensureAndAttachDevicePolicy(String deviceKey, String identityId) {
     createDevicePolicy(deviceKey);
@@ -127,18 +139,15 @@ public class DeviceControlPlaneService {
           .target(cognitoTarget(identityId))
           .build());
     } catch (ResourceNotFoundException e) {
-      // The policy or the attachment is already gone. Treat as success so an unlink
-      // can converge: without this, a device that was linked but never successfully
-      // attached (a post-commit attach failure) could never be unlinked.
+      // Already detached (or never attached). Treat as success so unlink can converge.
       log.info("IoT policy {} already absent for identity {}; treating detach as done",
           policyName, identityId);
     }
   }
 
   /**
-   * IoT policy targets for a Cognito identity must be qualified as
-   * {@code <region>:<identityId>}. A bare identity id is rejected as an invalid target.
-   * If the value already carries the region prefix, it is returned unchanged.
+   * IoT policy targets for a Cognito identity are {@code <region>:<identityId>}; a bare
+   * identity id is rejected as an invalid target.
    */
   private String cognitoTarget(String identityId) {
     if (identityId == null || identityId.isBlank()) {

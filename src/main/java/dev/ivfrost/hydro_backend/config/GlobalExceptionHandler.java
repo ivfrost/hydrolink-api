@@ -6,7 +6,6 @@ import dev.ivfrost.hydro_backend.common.ApiResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceFetchException;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkException;
 import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
-import dev.ivfrost.hydro_backend.devices.DuplicateMacAddressException;
 import dev.ivfrost.hydro_backend.devices.PinsNotPersistedException;
 import dev.ivfrost.hydro_backend.devices.PinsNotProvidedException;
 import dev.ivfrost.hydro_backend.devices.ScheduleNotFoundException;
@@ -119,14 +118,6 @@ public class GlobalExceptionHandler {
     log.warn("Device fetch failed: {}", ex.getMessage());
     return ResponseEntity.status(HttpStatus.NOT_FOUND)
         .body(ApiResponse.error(HttpStatus.NOT_FOUND, ErrorCodes.DEVICE_FETCH_FAILED, ex.getMessage()));
-  }
-
-  @ExceptionHandler(DuplicateMacAddressException.class)
-  public ResponseEntity<ApiResponse<Void>> handleDuplicateMacAddressException(
-      DuplicateMacAddressException ex) {
-    log.warn("Duplicate MAC address: {}", ex.getMessage());
-    return ResponseEntity.status(HttpStatus.CONFLICT)
-        .body(ApiResponse.error(HttpStatus.CONFLICT, ErrorCodes.DUPLICATE_MAC_ADDRESS, ex.getMessage()));
   }
 
   @ExceptionHandler(FileUploadException.class)

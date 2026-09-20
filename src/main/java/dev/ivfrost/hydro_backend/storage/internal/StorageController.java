@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -116,8 +117,8 @@ public class StorageController {
       @RequestPart("file") MultipartFile file,
       @Parameter(description = "ID of the area to associate the uploaded file with", example = "101")
       @PathVariable @Positive Long areaId,
-      @Parameter(description = "ID of the station to associate the uploaded file with", example = "505")
-      @PathVariable @Positive Long stationId) {
+      @Parameter(description = "ID of the station to associate the uploaded file with. Station ids are zero-based.", example = "0")
+      @PathVariable @PositiveOrZero Long stationId) {
 
     return handleUpload(
         file,
