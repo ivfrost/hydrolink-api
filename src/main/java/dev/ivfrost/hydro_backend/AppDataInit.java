@@ -25,6 +25,9 @@ import org.springframework.stereotype.Component;
 @Profile("dev")
 public class AppDataInit implements ApplicationRunner {
 
+  private static final String ADMIN_USERNAME = "admin";
+  private static final String ADMIN_FULL_NAME = "Admin User";
+
   private final UserRepository userRepository;
   private final DeviceRepository deviceRepository;
   private final DeviceKeyEncryptionUtil encryptionUtil;
@@ -36,17 +39,17 @@ public class AppDataInit implements ApplicationRunner {
   // returned sub on the local row.
   @Override
   public void run(@NonNull ApplicationArguments args) {
-    if (userRepository.findByUsername("admin").isPresent()) {
+    if (userRepository.findByUsername(ADMIN_USERNAME).isPresent()) {
       return;
     }
 
     String sub = cognitoUserSyncService.ensureDevUser(
-        seedProperties.adminEmail(), seedProperties.adminPassword());
+        seedProperties.adminEmail(), seedProperties.adminPassword(), ADMIN_USERNAME, ADMIN_FULL_NAME);
 
     User adminUser = User.builder()
         .sub(sub)
-        .username("admin")
-        .fullName("Admin User")
+        .username(ADMIN_USERNAME)
+        .fullName(ADMIN_FULL_NAME)
         .email(seedProperties.adminEmail())
         .emailVerified(true)
         .createdAt(Instant.now())

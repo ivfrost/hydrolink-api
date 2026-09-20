@@ -1,10 +1,12 @@
 package dev.ivfrost.hydro_backend.users.internal;
 
 import dev.ivfrost.hydro_backend.common.ApiResponse;
+import dev.ivfrost.hydro_backend.devices.AdminDeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUnlinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
+import dev.ivfrost.hydro_backend.users.AuthenticatedUser;
 import dev.ivfrost.hydro_backend.users.UserMapper;
 import dev.ivfrost.hydro_backend.users.UserResolutionService;
 import dev.ivfrost.hydro_backend.users.UserResponse;
@@ -28,6 +30,7 @@ import org.springframework.data.domain.Sort.Direction;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
@@ -52,6 +55,7 @@ public class UserController {
   private final UserService userService;
   private final UserResolutionService userResolutionService;
   private final UserMapper userMapper;
+  private final dev.ivfrost.hydro_backend.users.CognitoIdentityResolver cognitoIdentityResolver;
 
   // ======= NON-AUTHENTICATED USERS ENDPOINTS =======
 
@@ -79,8 +83,12 @@ public class UserController {
   )
   @PostMapping("/me/devices/link")
   public ResponseEntity<ApiResponse<DeviceResponse>> linkDeviceToCurrentUser(
+      @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
+      Authentication authentication,
       @Valid @RequestBody DeviceLinkRequest req) {
-    DeviceResponse updatedDevice = userService.linkDeviceToCurrentUser(req);
+    String identityId = cognitoIdentityResolver.resolveIdentityId(idToken(authentication));
+    DeviceResponse updatedDevice = userService.linkDeviceToCurrentUser(
+        req, authenticatedUser.sub(), identityId, authenticatedUser.id());
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device linked successfully", updatedDevice));
   }
@@ -91,10 +99,21 @@ public class UserController {
   )
   @DeleteMapping("/me/devices/unlink")
   public ResponseEntity<ApiResponse<Void>> unlinkDeviceFromCurrentUser(
-      @Valid @RequestBody DeviceUnlinkRequest req) {
-    userService.unlinkDeviceFromCurrentUser(req);
+      @Valid @RequestBody DeviceUnlinkRequest req,
+      Authentication authentication,
+      @AuthenticationPrincipal AuthenticatedUser authenticatedUser) {
+    String identityId = cognitoIdentityResolver.resolveIdentityId(idToken(authentication));
+    userService.unlinkDeviceFromCurrentUser(req, identityId, authenticatedUser.id());
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "Device unlinked successfully"));
+  }
+
+  private String idToken(Authentication authentication) {
+    Object credentials = authentication.getCredentials();
+    if (!(credentials instanceof Jwt jwt)) {
+      throw new IllegalStateException("Expected a JWT in the authentication credentials");
+    }
+    return jwt.getTokenValue();
   }
 
   @Operation(
@@ -151,10 +170,10 @@ public class UserController {
   )
   @PatchMapping(value = "/me")
   public ResponseEntity<ApiResponse<UserResponse>> updateCurrentUser(
-      @Valid @RequestBody UserUpdateRequest userUpdateRequest, @AuthenticationPrincipal Jwt jwt) {
+      @Valid @RequestBody UserUpdateRequest userUpdateRequest, Authentication authentication) {
     return ResponseEntity.status(HttpStatus.OK)
         .body(ApiResponse.success(HttpStatus.OK, "User profile updated successfully",
-            userService.updateCurrentUser(userUpdateRequest, jwt)));
+            userService.updateCurrentUser(userUpdateRequest, (Jwt) authentication.getCredentials())));
   }
 
   @Operation(
@@ -164,13 +183,25 @@ public class UserController {
           + "local row is created or bound before other requests."
   )
   @PostMapping("/verify-sync")
-  public ResponseEntity<ApiResponse<UserResponse>> syncVerification(@AuthenticationPrincipal Jwt jwt) {
-    User user = userResolutionService.syncVerificationState(jwt.getSubject());
+  public ResponseEntity<ApiResponse<UserResponse>> syncVerification(@AuthenticationPrincipal AuthenticatedUser authenticatedUser) {
+    User user = userResolutionService.syncVerificationState(authenticatedUser.sub());
     return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,
         "User email verified successfully", userMapper.userToUserResponse(user)));
   }
 
   // ======= ADMIN-ONLY ENDPOINTS =======
+
+  @Hidden
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(summary = "Link a device to a user by user ID (Admin only)")
+  @PostMapping("/users/{userId}/devices/link")
+  public ResponseEntity<ApiResponse<DeviceResponse>> adminLinkDevice(
+      @Parameter(description = "Target user ID") @PathVariable UUID userId,
+      @Valid @RequestBody AdminDeviceLinkRequest req) {
+    DeviceResponse device = userService.adminLinkDevice(req, userId);
+    return ResponseEntity.status(HttpStatus.OK)
+        .body(ApiResponse.success(HttpStatus.OK, "Device linked to user successfully", device));
+  }
 
   @Hidden
   @PreAuthorize("hasRole('ADMIN')")

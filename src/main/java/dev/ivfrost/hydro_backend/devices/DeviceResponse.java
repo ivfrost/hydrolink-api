@@ -6,7 +6,7 @@ import java.util.Set;
 import java.util.UUID;
 import lombok.Builder;
 
-@Builder
+@Builder(toBuilder = true)
 public record DeviceResponse(
     @NotNull Long id,
     @NotNull String key,

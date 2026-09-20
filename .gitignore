@@ -61,3 +61,6 @@ application-test.properties
 /reference/
 /learning-records/
 /assets/
+
+### Tooling ###
+/.kilo/

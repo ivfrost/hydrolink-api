@@ -1,6 +1,9 @@
 package dev.ivfrost.hydro_backend.schedules.internal;
 
 import dev.ivfrost.hydro_backend.config.CommandGateway;
+import dev.ivfrost.hydro_backend.devices.DeviceCommandAction;
+import dev.ivfrost.hydro_backend.devices.DeviceCommandCause;
+import dev.ivfrost.hydro_backend.devices.DeviceCommandRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.ScheduleDeviceProvider;
@@ -10,12 +13,10 @@ import dev.ivfrost.hydro_backend.schedules.ScheduleRequest;
 import dev.ivfrost.hydro_backend.schedules.ScheduleResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.transaction.Transactional;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cglib.core.Local;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
@@ -86,10 +87,9 @@ public class ScheduleService {
     schedule.getWindows().forEach(w -> w.setSchedule(schedule));
 
     scheduleRepository.save(schedule);
-    commandGateway.publishCommand(deviceKey,
-        """
-        {"action": "SetSchedule", "cause":"Manual", "date": "%s", "windows": %s}
-        """.formatted(time, objectMapper.writeValueAsString(request.windows())));
+    DeviceCommandRequest command = DeviceCommandRequest.builder().action(DeviceCommandAction.SET_SCHEDULE).cause(
+        DeviceCommandCause.MANUAL).date(time).windows(request.windows()).build();
+    commandGateway.publishCommand(deviceKey, command);
 
     return enrich(schedule);
   }

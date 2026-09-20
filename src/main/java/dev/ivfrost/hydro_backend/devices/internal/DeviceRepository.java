@@ -12,8 +12,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface DeviceRepository extends JpaRepository<Device, Long> {
 
-  boolean existsByMacAddress(String macAddress);
-
   @Modifying
   @Query(value = """
     INSERT INTO devices (mac_address, key, firmware, technical_name, secret, secret_fingerprint, created_at, updated_at)
@@ -46,4 +44,5 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
   @Query("SELECT d FROM Device d LEFT JOIN FETCH d.pins WHERE d.userId = :userId")
   Page<Device> findAllByUserIdWithPins(@Param("userId") UUID userId, Pageable pageable);
 
+  boolean existsByKeyAndUserSub(String key, String userSub);
 }

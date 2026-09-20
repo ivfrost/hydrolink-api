@@ -1,5 +1,6 @@
 package dev.ivfrost.hydro_backend.users.internal;
 
+import dev.ivfrost.hydro_backend.devices.AdminDeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkProvider;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
@@ -46,6 +47,7 @@ public class UserService {
   private final DeviceLinkProvider deviceLinkProvider;
   private final UserMapper userMapper;
   private final CognitoUserSyncService cognitoUserSyncService;
+  private final dev.ivfrost.hydro_backend.storage.OtaUpdateService otaUpdateService;
 
   /**
    * Retrieves the authenticated user
@@ -68,7 +70,7 @@ public class UserService {
    * @return {@link UserResponse} containing user profile information
    */
   UserResponse getCurrentUserProfile() {
-    return userMapper.userToUserResponse(getCurrentUser());
+    return toSignedUserResponse(getCurrentUser());
   }
 
   /**
@@ -89,7 +91,7 @@ public class UserService {
    * @return {@link UserResponse} containing user profile information
    */
   UserResponse getUserProfileById(UUID userId) {
-    return userMapper.userToUserResponse(getUserById(userId));
+    return toSignedUserResponse(getUserById(userId));
   }
 
   /**
@@ -98,11 +100,15 @@ public class UserService {
    * @param pageable the pagination and sorting information
    * @return a page of {@link UserResponse} containing user profile information
    */
+  public Page<UserResponse> getAllUserProfiles(Pageable pageable) {
+    return getAllUserProfilesRaw(pageable).map(this::signUserImage);
+  }
+
   @Cacheable(
       value = "allUsersCache",
       key = "'allUsers:' + #pageable.pageNumber + ':' + #pageable.pageSize + ':' + #pageable.sort"
   )
-  public Page<UserResponse> getAllUserProfiles(Pageable pageable) {
+  Page<UserResponse> getAllUserProfilesRaw(Pageable pageable) {
     return userRepository.findAll(pageable).map(userMapper::userToUserResponse);
   }
 
@@ -194,21 +200,35 @@ public class UserService {
     userMapper.updateUserFromRequest(req, user);
 
     // Hibernate dirty checking handles updates
-    return userMapper.userToUserResponse(user);
+    return toSignedUserResponse(user);
   }
 
   /**
    * Links a device to the currently authenticated user.
    */
-  DeviceResponse linkDeviceToCurrentUser(DeviceLinkRequest req) {
-    return deviceLinkProvider.linkDevice(req, getCurrentUserId());
+  DeviceResponse linkDeviceToCurrentUser(DeviceLinkRequest req, String userSub, String identityId, UUID userId) {
+    return deviceLinkProvider.linkDevice(req, userSub, identityId, userId);
+  }
+
+  /**
+   * Admin link. The admin is role-gated and has no token for the target user, so the
+   * identity id is supplied by the caller while the target's sub comes from the row.
+   */
+  DeviceResponse adminLinkDevice(AdminDeviceLinkRequest req, UUID targetUserId) {
+    User target = requireUserById(targetUserId);
+    if (target.getSub() == null || target.getSub().isBlank()) {
+      throw new IllegalStateException(
+          "Cannot link a device to a user who has not signed in yet: the user has no Cognito sub.");
+    }
+    return deviceLinkProvider.linkDevice(
+        new DeviceLinkRequest(req.secret()), target.getSub(), req.cognitoId(), targetUserId);
   }
 
   /*
    * Unlink a device from the currently authenticated user.
    */
-  void unlinkDeviceFromCurrentUser(DeviceUnlinkRequest req) {
-    deviceLinkProvider.unlinkDevice(req, getCurrentUserId());
+  void unlinkDeviceFromCurrentUser(DeviceUnlinkRequest req, String identityId, UUID userId) {
+    deviceLinkProvider.unlinkDevice(req, identityId, userId);
   }
 
   /**
@@ -247,7 +267,7 @@ public class UserService {
     if (email != null && !email.isBlank()) {
       return userRepository.findByEmail(email).isEmpty();
     }
-    return false; // neither field provided — nothing to validate
+    return false; // neither field provided, nothing to validate
   }
 
   /*====== HELPERS ======*/
@@ -308,5 +328,29 @@ public class UserService {
       return authenticatedUser.id();
     }
     throw new AuthenticationCredentialsNotFoundException("No authenticated user found.");
+  }
+
+  private UserResponse toSignedUserResponse(User user) {
+    return signUserImage(userMapper.userToUserResponse(user));
+  }
+
+  /**
+   * Signs the stored image key into a fresh URL for the response. Rows holding an old
+   * full URL are left as-is.
+   */
+  private UserResponse signUserImage(UserResponse response) {
+    String imageUrl = response.imageUrl();
+    if (imageUrl == null || imageUrl.isBlank() || imageUrl.startsWith("http")) {
+      return response;
+    }
+    try {
+      return response.toBuilder()
+          .imageUrl(otaUpdateService.generatePresignedUrl(imageUrl))
+          .build();
+    } catch (Exception e) {
+      log.warn("Could not sign image key {} for user {}; returning key as-is",
+          imageUrl, response.id(), e);
+      return response;
+    }
   }
 }

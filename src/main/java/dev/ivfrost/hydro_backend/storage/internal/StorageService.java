@@ -127,8 +127,9 @@ public class StorageService {
       throw new FileUploadException("Error uploading file to MinIO storage", e);
     }
 
-    String presignedUrl = generatePresignedUrl(objectKey);
-    return new UploadResponse(presignedUrl, objectKey, sha256, bytes.length);
+    // Store the object key, not a presigned URL: this value is persisted on rows
+    // (imageUrl) and a presigned URL would expire under them. Reads sign it fresh.
+    return new UploadResponse(objectKey, objectKey, sha256, bytes.length);
   }
 
   /**

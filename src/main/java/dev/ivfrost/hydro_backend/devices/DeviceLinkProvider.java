@@ -10,7 +10,7 @@ public interface DeviceLinkProvider {
    * @param req    the device link request containing the device secret
    * @param userId the user ID to link the device to
    */
-  DeviceResponse linkDevice(DeviceLinkRequest req, UUID userId);
+  DeviceResponse linkDevice(DeviceLinkRequest req, String userSub, String identityId, UUID userId);
 
   /**
    * Unlinks a device from a user
@@ -18,5 +18,5 @@ public interface DeviceLinkProvider {
    * @param req    the device link request containing the device secret
    * @param userId the user ID to unlink from
    */
-  void unlinkDevice(DeviceUnlinkRequest req, UUID userId);
+  void unlinkDevice(DeviceUnlinkRequest req, String identityId, UUID userId);
 }

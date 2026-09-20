@@ -4,44 +4,42 @@ import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Builder;
 
-@Data
-@AllArgsConstructor
-public class UserResponse {
+@Builder(toBuilder = true)
+public record UserResponse(
+    @NotNull
+    UUID id,
 
-  @NotNull
-  UUID id;
+    @NotNull
+    String username,
 
-  @NotNull
-  String username;
+    @NotNull
+    String fullName,
 
-  @NotNull
-  String fullName;
+    @NotNull
+    String email,
 
-  @NotNull
-  String email;
+    String imageUrl,
 
-  String imageUrl;
+    // must be present (not null) but may be empty string
+    @NotNull
+    String phoneNumber,
 
-  // must be present (not null) but may be empty string
-  @NotNull
-  String phoneNumber;
+    // must be present (not null) but may be empty string
+    @NotNull
+    String address,
 
-  // must be present (not null) but may be empty string
-  @NotNull
-  String address;
+    @NotNull
+    Instant createdAt,
 
-  @NotNull
-  Instant createdAt;
+    @NotNull
+    Instant updatedAt,
 
-  @NotNull
-  Instant updatedAt;
+    @NotNull
+    List<String> roles,
 
-  @NotNull
-  List<String> roles;
-
-  @NotNull
-  String settings;
+    @NotNull
+    String settings
+) {
 }

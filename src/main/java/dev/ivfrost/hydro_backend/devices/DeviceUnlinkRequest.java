@@ -12,6 +12,7 @@ public record DeviceUnlinkRequest(
         requiredMode = RequiredMode.REQUIRED
     )
     @NotNull
-    String deviceKey) {
+    String deviceKey
+    ) {
 
 }

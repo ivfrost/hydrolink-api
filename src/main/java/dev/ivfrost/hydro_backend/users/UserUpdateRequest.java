@@ -4,7 +4,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import org.hibernate.validator.constraints.URL;
 
 public record UserUpdateRequest(
     @Schema(description = "The username of the user", example = "test_user", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
@@ -29,8 +28,8 @@ public record UserUpdateRequest(
     @Size(max = 100)
     String address,
 
-    @Schema(description = "The image URL of the user", example = "https://hydrolink.io/v1/storage/users/102/upload", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-    @URL
+    @Schema(description = "The stored image object key (or a legacy full URL). Signed into a fresh URL on read.", example = "users/102/6f1c.jpeg", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+    @Size(max = 2048)
     String imageUrl,
 
     @Schema(description = "The settings of the user", example = "{\"notifications\":true}", requiredMode = Schema.RequiredMode.NOT_REQUIRED)

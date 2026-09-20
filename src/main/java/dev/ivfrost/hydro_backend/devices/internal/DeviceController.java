@@ -2,25 +2,31 @@ package dev.ivfrost.hydro_backend.devices.internal;
 
 import dev.ivfrost.hydro_backend.common.ApiResponse;
 import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
-import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
+import dev.ivfrost.hydro_backend.devices.DeviceCommandRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
+import dev.ivfrost.hydro_backend.users.AuthenticatedUser;
 import dev.ivfrost.hydro_backend.util.PageRequestBuilder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.util.Map;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort.Direction;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,6 +39,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Slf4j
 @Tag(name = "Devices Module", description = "API endpoints for device management")
 @AllArgsConstructor
 @RestController
@@ -41,6 +48,59 @@ import org.springframework.web.bind.annotation.RestController;
 public class DeviceController {
 
   private final DeviceService deviceService;
+
+  // ====== AUTHENTICATED APP ENDPOINTS ======
+
+  /** Dispatches a command to a device. Returns 202 immediately; the device acks asynchronously. */
+  @Operation(summary = "Send a command to a device")
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(
+      content = @Content(
+          mediaType = "application/json",
+          examples = {
+              @ExampleObject(name = "SetSchedule", value = """
+                {
+                  "action": "SetSchedule",
+                  "stationId": 1,
+                  "cause": "Manual",
+                  "date": "2026-09-16",
+                  "windows": [
+                    {
+                      "pin": 0,
+                      "startType": "FIXED",
+                      "fixedTime": "08:30",
+                      "durationMinutes": 1
+                    }
+                  ]
+                }
+                """),
+              @ExampleObject(name = "Start", value = """
+                { "action": "Start", "stationId": 1, "cause": "Manual", "durationMs": 30000 }
+                """),
+              @ExampleObject(name = "SetName", value = """
+                { "action": "SetName", "stationId": 2, "cause": "Manual", "name": "Tomatoes" }
+                """),
+              @ExampleObject(name = "SetImage", value = """
+                { "action": "SetImage", "stationId": 2, "cause": "Manual",
+                  "imageUrl": "https://cdn.example.com/plants/tomato.png" }
+                """),
+              @ExampleObject(name = "OtaUpdate", value = """
+                { "action": "OtaUpdate", "cause": "Manual",
+                  "binUrl": "https://cdn.example.com/fw/hydro-1.2.0.bin" }
+                """),
+              @ExampleObject(name = "SetSecret", value = """
+                { "action": "SetSecret", "cause": "Manual",
+                  "secret": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" }
+                """)
+          }))
+  @PostMapping("/devices/{deviceKey}/command")
+  public ResponseEntity<ApiResponse<Void>> sendCommand(
+      @PathVariable String deviceKey,
+      @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
+      @Valid @RequestBody DeviceCommandRequest commandRequest) {
+    deviceService.sendCommand(deviceKey, authenticatedUser.sub(), commandRequest);
+    return ResponseEntity.accepted().body(ApiResponse.success(HttpStatus.ACCEPTED,
+        "Command execution in progress, will ack when device sends confirmation"));
+  }
 
   // ======= INTERNAL & DEVICE ENDPOINTS =======
 
@@ -63,21 +123,6 @@ public class DeviceController {
   }
 
   // ======= ADMIN-ONLY ENDPOINTS =======
-
-  @PreAuthorize("hasRole('ADMIN')")
-  @Operation(
-      summary = "Link device to user by user ID (Admin only)",
-      description = "Links a device to a specific user by their unique ID using the device's secret as ownership proof."
-  )
-  @PostMapping("/users/{userId}/devices/link")
-  public ResponseEntity<ApiResponse<Void>> linkDeviceById(
-      @Valid @RequestBody DeviceLinkRequest linkDeviceRequest,
-      @Parameter(description = "Target user ID")
-      @PathVariable UUID userId) {
-    deviceService.linkDevice(linkDeviceRequest, userId);
-    return ResponseEntity.status(HttpStatus.OK)
-        .body(ApiResponse.success(HttpStatus.OK, "Device linked to user successfully"));
-  }
 
   @PreAuthorize("hasRole('ADMIN')")
   @Operation(

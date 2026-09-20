@@ -15,12 +15,12 @@ public class DeviceLinkProviderImpl implements DeviceLinkProvider {
   private final DeviceService deviceService;
 
   @Override
-  public DeviceResponse linkDevice(DeviceLinkRequest req, UUID userId) {
-    return deviceService.linkDevice(req, userId);
+  public DeviceResponse linkDevice(DeviceLinkRequest req, String userSub, String identityId, UUID userId) {
+    return deviceService.linkDevice(req, userSub, identityId, userId);
   }
 
   @Override
-  public void unlinkDevice(DeviceUnlinkRequest req, UUID userId) {
-    deviceService.unlinkDevice(req.deviceKey(), userId);
+  public void unlinkDevice(DeviceUnlinkRequest req, String identityId, UUID userId) {
+    deviceService.unlinkDevice(req, identityId, userId);
   }
 }

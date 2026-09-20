@@ -114,6 +114,9 @@ public class Device implements Serializable {
   @Column(name = "user_id")
   private UUID userId;
 
+  @Column(name = "user_sub")
+  private String userSub;
+
   @Column(name = "display_order")
   private Long displayOrder;
 

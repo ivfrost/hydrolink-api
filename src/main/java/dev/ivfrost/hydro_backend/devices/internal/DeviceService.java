@@ -4,7 +4,11 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
 import dev.ivfrost.hydro_backend.common.RestResponsePage;
 import dev.ivfrost.hydro_backend.config.DeviceProperties;
 import dev.ivfrost.hydro_backend.config.CommandGateway;
+import dev.ivfrost.hydro_backend.devices.DeviceCommandAction;
+import dev.ivfrost.hydro_backend.devices.DeviceCommandCause;
+import dev.ivfrost.hydro_backend.devices.DeviceCommandRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceKeyEncryptionUtil;
+import dev.ivfrost.hydro_backend.devices.DeviceUnlinkRequest;
 import dev.ivfrost.hydro_backend.devices.SecretRotatedEvent;
 import dev.ivfrost.hydro_backend.devices.AdminDeviceUpdateRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceFetchException;
@@ -16,8 +20,9 @@ import dev.ivfrost.hydro_backend.devices.DeviceProvisionRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
-import dev.ivfrost.hydro_backend.devices.DuplicateMacAddressException;
 import jakarta.persistence.EntityNotFoundException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -52,6 +57,8 @@ import dev.ivfrost.hydro_backend.storage.OtaUpdateService;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -81,6 +88,7 @@ public class DeviceService {
       })
       .build();
   private final RedisTemplate<String, Object> redisTemplate;
+  private final DeviceControlPlaneService deviceControlPlaneService;
 
   /**
    * Registers a device record in this service and generates an ownership secret for linking.
@@ -92,17 +100,12 @@ public class DeviceService {
    *
    * @param req the device record registration request DTO
    * @return the device record response DTO (with the raw ownership secret)
-   * @throws DuplicateMacAddressException if a device record with the same MAC address already exists
    */
   @Transactional
   @Caching(evict = {
       @CacheEvict(value = "allDevicesCache", allEntries = true),
   })
   public DeviceProvisionResponse provisionDevice(DeviceProvisionRequest req) {
-
-    if (deviceRepository.existsByMacAddress(req.macAddress())) {
-      throw new DuplicateMacAddressException(req.macAddress());
-    }
 
     Device device = deviceMapper.deviceProvisionRequestToDevice(req);
 
@@ -113,13 +116,31 @@ public class DeviceService {
     device.setSecretFingerprint(encryptionUtil.fingerprint(rawSecret));
     Device saved = deviceRepository.save(device);
 
+    // Create the AWS IoT policy for the device which will be attached/unattached on link/unlink
+    // to a Cognito ID. Deferred until the transaction actually commits, so a rollback later in
+    // this method never leaves AWS state for a device row that ends up not existing.
+    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+      @Override
+      public void afterCommit() {
+        try {
+          deviceControlPlaneService.createDevicePolicy(req.key());
+        } catch (Exception e) {
+          // Creating policy failed and the device row is already committed and permanent at this
+          // point. But createDevicePolicy is idempotent, so retrying later is safe.
+          log.error("Failed to create IoT policy for device {} after commit. "
+              + "Device row exists but has no policy yet.", req.key(), e);
+        }
+      }
+    });
+
     // Return device details along with the raw secret
     return deviceMapper.deviceToDeviceProvisionResponse(saved, rawSecret);
   }
 
   /**
    * Registers (or updates) a device record for an ESP32 that is booting, and issues its
-   * ownership secret. Called by the device's own boot/post-build flow with a provisioning token.
+   * ownership secret. Called by the platformio post-build hook with a provisioning token
+   * only when provisioning mode is enabled.
    *
    * <p>This mirrors a booted device into the application's own data as a <em>device record</em>.
    * It is independent of the AWS Thing: the ESP provisions the AWS Thing itself via X.509 fleet
@@ -136,15 +157,13 @@ public class DeviceService {
       @CacheEvict(value = "deviceByKeyCache", allEntries = true)
   })
   public DeviceProvisionResponse provisionDevice(DeviceProvisionRequest req, String authorizationHeader) {
-    log.debug("authorizationHeader raw = '{}'", authorizationHeader);
     if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
       throw new BadCredentialsException("Missing or invalid Authorization header");
     }
     String token = authorizationHeader.replace("Bearer ", "").trim();
     String provisioningSecret = deviceProperties.provisioningSecret();
-    log.debug("token='{}' (len={}), provisioningSecret='{}' (len={})",
-        token, token.length(), provisioningSecret, provisioningSecret.length());
-    if (!provisioningSecret.equals(token)) {
+    if (!MessageDigest.isEqual(provisioningSecret.getBytes(StandardCharsets.UTF_8),
+        token.getBytes(StandardCharsets.UTF_8))) {
       throw new BadCredentialsException("Invalid provisioning token");
     }
 
@@ -162,6 +181,23 @@ public class DeviceService {
     // Retrieve the saved device
     Device saved = deviceRepository.findByKey(device.getKey())
         .orElseThrow(() -> new EntityNotFoundException("Device not found after upsert"));
+
+    // Create the AWS IoT policy for the device which will be attached/unattached on link/unlink
+    // to a Cognito ID. Deferred until the transaction actually commits, so a rollback later in
+    // this method never leaves AWS state for a device row that ends up not existing.
+    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+      @Override
+      public void afterCommit() {
+        try {
+          deviceControlPlaneService.createDevicePolicy(req.key());
+        } catch (Exception e) {
+          // Creating policy failed and the device row is already committed and permanent at this
+          // point. But createDevicePolicy is idempotent, so retrying later is safe.
+          log.error("Failed to create IoT policy for device {} after commit. "
+              + "Device row exists but has no policy yet.", req.key(), e);
+        }
+      }
+    });
 
     // Return device details along with the raw secret
     return deviceMapper.deviceToDeviceProvisionResponse(saved, rawSecret);
@@ -182,10 +218,15 @@ public class DeviceService {
   }
 
   /**
-   * Links an unlinked device to a user using the device secret as ownership proof
-   * Evicts the user ID based device cache.
+   * Links an unlinked device to a user using the device secret as ownership proof, and
+   * attaches the device's AWS IoT policy to the caller's Cognito identity so the app can
+   * subscribe to the device's topics.
    *
-   * @param req the device link request DTO (contains device secret)
+   * @param req        the device link request DTO (contains the device secret)
+   * @param userSub    the linking user's Cognito User Pool sub, stored as the owner
+   * @param identityId the caller's Cognito Identity Pool identity id, resolved server-side,
+   *                   used as the IoT policy attach target
+   * @param userId     the linking user's application ID
    * @return the updated device response DTO after linking
    * @throws DeviceLinkException     if the device is already linked
    * @throws DeviceNotFoundException if the device is not found
@@ -195,7 +236,7 @@ public class DeviceService {
       @CacheEvict(value = "allDevicesCache", allEntries = true)
   })
   @Transactional
-  public DeviceResponse linkDevice(DeviceLinkRequest req, UUID userId) {
+  public DeviceResponse linkDevice(DeviceLinkRequest req, String userSub, String identityId, UUID userId) {
 
     // Fetch unlinked device by the deterministic fingerprint of the provided secret
     String fingerprint = encryptionUtil.fingerprint(req.secret());
@@ -207,37 +248,72 @@ public class DeviceService {
     }
 
     device.setUserId(userId);
+    device.setUserSub(userSub);
     device.setLinkedAt(Instant.now());
     device.setDisplayOrder(calculateDeviceOrder(userId));
     deviceRepository.save(device);
     evictUserDeviceCache(userId);
+
+    // identityId is resolved server-side from the caller's ID token, never taken from the
+    // request. Attach is deferred to after commit: a rolled-back link must not leave a grant.
+    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+      @Override
+      public void afterCommit() {
+        try {
+          deviceControlPlaneService.ensureAndAttachDevicePolicy(device.getKey(), identityId);
+        } catch (Exception e) {
+          log.error("Failed to attach IoT policy for device {} to identity {} after commit. "
+                  + "Link succeeded but the app cannot yet subscribe to this device's topics.",
+              device.getKey(), identityId, e);
+        }
+      }
+    });
+
     return deviceMapper.deviceToDeviceResponse(device);
   }
 
   /**
-   * Unlinks a device from a user by device key. The device will no longer be associated with the
-   * user and will be available for linking by another user or themselves in the future.
-   * Evicts the user ID based device cache.
+   * Unlinks a device from the given user and clears its ownership, so it can be linked
+   * again later. Detaches the device's AWS IoT policy from the caller's Cognito identity
+   * first, so the app loses access to the device's topics.
    *
-   * @param deviceKey the key of the device to unlink
+   * @param req        the device unlink request DTO (contains the device key)
+   * @param identityId the caller's Cognito Identity Pool identity id, resolved server-side,
+   *                   used as the IoT policy detach target
+   * @param userId     the unlinking user's application ID
    * @throws DeviceNotFoundException if the device is not found
-   * @throws IllegalArgumentException if the device does not belong to the user
+   * @throws DeviceLinkException     if the device does not belong to the user, or the
+   *                                 policy detach failed
    */
   @Caching(evict = {
       @CacheEvict(value = "deviceByKeyCache", allEntries = true),
       @CacheEvict(value = "allDevicesCache", allEntries = true)
   })
   @Transactional
-  public void unlinkDevice(String deviceKey, UUID userId) {
-    Device device = deviceRepository.findByKey(deviceKey)
-        .orElseThrow(() -> new DeviceNotFoundException(DEVICE_NOT_FOUND_KEY_STR + deviceKey));
+  public void unlinkDevice(DeviceUnlinkRequest req, String identityId, UUID userId) {
+    Device device = deviceRepository.findByKey(req.deviceKey())
+        .orElseThrow(() -> new DeviceNotFoundException(DEVICE_NOT_FOUND_KEY_STR + req.deviceKey()));
 
     if (device.getUserId() == null || !Objects.equals(device.getUserId(), userId)) {
       throw new DeviceLinkException("Device is not linked to this user");
     }
 
+    // Revoke AWS access first, and synchronously. If this fails, we must not let the
+    // DB unlink succeed: revoked in DB but still granted permission on AWS is a security hole.
+    try {
+      deviceControlPlaneService.detachDevicePolicy(req.deviceKey(), identityId);
+    } catch (Exception e) {
+      log.error("Failed to detach IoT policy for device {} from identity {}. "
+              + "Unlink aborted, device remains linked to prevent stale AWS access.",
+          req.deviceKey(), identityId, e);
+      throw new DeviceLinkException(
+          "Could not unlink device right now, please try again shortly.");
+    }
+
     device.setUserId(null);
+    device.setUserSub(null);
     device.setDisplayOrder(0L);
+    device.setLinkedAt(null);
     deviceRepository.save(device);
     evictUserDeviceCache(userId);
   }
@@ -267,7 +343,7 @@ public class DeviceService {
   public Page<DeviceResponse> getDevicesByUserId(UUID userId, Pageable pageable) {
     RestResponsePage<DeviceResponse> devices = deviceCacheService.getDevicesByUserId(userId, pageable);
     log.debug("Fetched {} devices for user ID {}", devices.getContent().size(), userId);
-    return devices;
+    return devices.map(this::signImageUrl);
   }
 
   /**
@@ -279,11 +355,11 @@ public class DeviceService {
    * @throws DeviceFetchException if no devices are found
    */
   public Page<DeviceResponse> getAllDevices(Pageable pageable) {
-    return deviceCacheService.getAllDevices(pageable);
+    return deviceCacheService.getAllDevices(pageable).map(this::signImageUrl);
   }
 
   /**
-   * Updates fields of a specific device by its ID.
+   * Updates fields of a device by its key.
    * Evicts the device's key based cache, the user ID based cache for both the original and
    * new user IDs (if changed) and the global device cache.
    *
@@ -325,24 +401,25 @@ public class DeviceService {
       device.setUserId(newUserId);
     }
 
-    // Common fields: friendlyName, location, description, imageUrl, displayOrder
-    // They can be empty, app will show a fallback, like device key (MQTT) in the case of
-    // missing friendly name.
+    // Common fields: friendlyName, location, description, imageUrl, displayOrder.
+    // They can be empty; the app falls back to the device key when friendlyName is missing.
     deviceMapper.updateDeviceFromRequest(req, device);
 
-    // Manually evict old owner cache if userId changed
+    // The user-device list is cached under keys shaped "<userId>-<pageable>"
+    // (see getDevicesByUserId's @Cacheable). The @CacheEvict(key = userId) on the
+    // public methods therefore never matches, so a PATCH left the app reading the
+    // pre-update DTO and looked like nothing was saved. Evict by pattern instead,
+    // for the current owner and (if it changed) the original owner.
+    evictUserDeviceCache(device.getUserId());
     if (originalUserId != null && !Objects.equals(originalUserId, device.getUserId())) {
-      Cache userCache = cacheManager.getCache("deviceByUserIdCache");
-      if (userCache != null) {
-        userCache.evict(originalUserId);
-      }
+      evictUserDeviceCache(originalUserId);
     }
 
     return deviceMapper.deviceToDeviceResponse(device);
   }
 
   /**
-   * Updates fields of a specific device by its ID.
+   * Updates fields of a device by its key.
    * Evicts the device's key based cache, the user ID based cache for the requesting user and the
    * global device cache.
    *
@@ -356,7 +433,6 @@ public class DeviceService {
    */
   @Caching(evict = {
       @CacheEvict(value = "deviceByKeyCache", key = "#deviceKey"),
-      @CacheEvict(value = "deviceByUserIdCache", key = "#requestingUserId"),
       @CacheEvict(value = "allDevicesCache", allEntries = true)
   })
   @Transactional
@@ -367,7 +443,7 @@ public class DeviceService {
   }
 
   /**
-   * Updates fields of a specific device by its ID.
+   * Updates fields of a device by its key (admin).
    * Evicts the device's key based cache, the new owner's user ID based cache for the device's owner
    * and the global device cache.
    *
@@ -380,7 +456,6 @@ public class DeviceService {
    */
   @Caching(evict = {
       @CacheEvict(value = "deviceByKeyCache", key = "#deviceKey"),
-      @CacheEvict(value = "deviceByUserIdCache", key = "#req.userId()", condition = "#req.userId() != null"),
       @CacheEvict(value = "allDevicesCache", allEntries = true)
   })
   @Transactional
@@ -489,7 +564,7 @@ public class DeviceService {
      * <p>Rotation is two-phase and requires the device to be reachable:
      * <ol>
      *   <li>{@code DEVICE_ONLINE}: the device must be powered on, connected to
-     *       the MQTT broker and subscribed to {@code hydro/{deviceKey}/command}, so
+     *       AWS IoT and subscribed to {@code hydro/{deviceKey}/command}, so
      *       the {@code SetSecret} command below is actually delivered.</li>
      *   <li>{@code DEVICE_ACKS}: the device persists the new secret to EEPROM and
      *       publishes a {@code secret_rotated} status back on
@@ -507,7 +582,8 @@ public class DeviceService {
      * for testing purposes.</p>
      *
      * @param deviceKey the key of the device for which to regenerate the secret
-     * @return the new secret in raw form (not hashed)
+     * @param requireAck whether to wait for the device to acknowledge before committing
+     * @return the new secret in raw form (stored encrypted)
      * @throws DeviceNotFoundException if the device is not found
      */
     @Transactional
@@ -518,10 +594,9 @@ public class DeviceService {
 
       if (requireAck) {
         pendingSecretChanges.put(deviceKey, rawSecret);
-        commandGateway.publishCommand(deviceKey,
-            """
-            {"action":"SetSecret","cause":"Manual","secret":"%s"}
-            """.formatted(rawSecret));
+        DeviceCommandRequest command = DeviceCommandRequest.builder().action(DeviceCommandAction.SET_SECRET).cause(
+            DeviceCommandCause.MANUAL).secret(rawSecret).build();
+        commandGateway.publishCommand(deviceKey, command);
         log.debug("Awaiting device {} to acknowledge secret change", deviceKey);
       } else {
         Device device = requireDeviceByKey(deviceKey);
@@ -603,7 +678,7 @@ public class DeviceService {
    *
    * <p>A fresh presigned URL is minted from the stored object key on every dispatch so
    * expired URLs don't strand devices. Devices whose firmware is already at least as
-   * new as the published version are skipped (semver-ish comparison — firmware is a
+   * new as the published version are skipped (semver-ish compare; firmware is a
    * free-form string, not a double).
    *
    * <p>Used both by the upload-triggered listener and by the scheduled re-dispatch
@@ -644,7 +719,7 @@ public class DeviceService {
         continue;
       }
 
-      // Announce update via MQTT
+      // Announce the update to the device on its announce topic
       log.info("Announcing OTA update to device {}", device.getKey());
       commandGateway.publishAnnounce(device.getKey(),
           """
@@ -700,7 +775,7 @@ public class DeviceService {
 
   /**
    * Handles a freshly uploaded firmware file. Runs asynchronously after the upload
-   * transaction commits so MQTT fan-out never blocks the upload request thread.
+   * transaction commits so the device announce fan-out never blocks the upload thread.
    */
   @Async
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -727,9 +802,9 @@ public class DeviceService {
   }
 
   /**
-   * Builds the list of MQTT topics the current user can access based on their devices.
+   * Topic filters covering all of a user's devices, used to build their IoT subscription scope.
    *
-   * @return the list of MQTT topics
+   * @return one wildcard topic filter per device key
    */
   public List<String> getUserDeviceTopics(UUID userId) {
     List<Device> devices = deviceRepository.findAllByUserId(userId, Pageable.unpaged()).getContent();
@@ -741,6 +816,43 @@ public class DeviceService {
   Device requireDeviceByKey(String deviceKey) {
     return deviceRepository.findByKey(deviceKey)
         .orElseThrow(() -> new DeviceNotFoundException(deviceKey));
+  }
+
+  /**
+   * Publishes a command to a device after confirming the caller owns it.
+   */
+  public void sendCommand(String deviceKey, String userSub, DeviceCommandRequest commandRequest) {
+    assertOwnership(deviceKey, userSub);
+    commandGateway.publishCommand(deviceKey, commandRequest);
+  }
+
+  /**
+   * Throws if the given user does not own the device.
+   */
+  public void assertOwnership(String deviceKey, String userSub) {
+    if (!deviceRepository.existsByKeyAndUserSub(deviceKey, userSub)) {
+      throw new AccessDeniedException("Device not owned by user");
+    }
+  }
+
+  /**
+   * Signs the stored image key into a fresh URL for the response. Rows holding an old
+   * full URL are left as-is.
+   */
+  private DeviceResponse signImageUrl(DeviceResponse response) {
+    String imageUrl = response.imageUrl();
+    if (imageUrl == null || imageUrl.isBlank() || imageUrl.startsWith("http")) {
+      return response;
+    }
+    try {
+      return response.toBuilder()
+          .imageUrl(otaUpdateService.generatePresignedUrl(imageUrl))
+          .build();
+    } catch (Exception e) {
+      log.warn("Could not sign image key {} for device {}; returning key as-is",
+          imageUrl, response.key(), e);
+      return response;
+    }
   }
 }
 
