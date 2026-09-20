@@ -106,7 +106,7 @@ small published API.
   device reports the same version.
 - **Pin reporting.** Devices publish their pin configuration, and the API stores each pin mode by
   device and pin number, skipping unrecognized modes with a warning instead of guessing at them.
-- **Schedules.** Per-day watering schedules with fixed or sensor-linked time windows. Upserting
+- **Schedules.** Per-day watering schedules with fixed or existing-window-linked time windows. Upserting
   persists the schedule, publishes it to the device, and returns which time windows conflict with
   each other in the response.
 
@@ -151,13 +151,18 @@ production keep it off unless explicitly enabled.
 
 A multi-stage Dockerfile packages the app as a JRE runtime image running as a non-root user.
 `docker-compose.prod.yml` composes the API with Postgres, Redis, and MinIO, each with a healthcheck,
-and relies on environment variables for real values. For this project I run the full stack self-hosted
-on Linux and deploy it with Coolify; TLS terminates on a reverse proxy in front of the app, and
-`server.forward-headers-strategy=framework` is set for that. The AWS side of the infrastructure (rule,
-SQS, IoT data plane, Cognito pool) lives in the region set by `AWS_REGION`, currently eu-west-1.
+and relies on environment variables for real values. TLS terminates on a
+reverse proxy in front of the app, and `server.forward-headers-strategy=framework` is set for that.
+The AWS side of the infrastructure (rule, SQS, IoT data plane, Cognito pool) lives in the region set 
+by `AWS_REGION`, currently eu-west-1.
+
+As of this time in the development, only the `dev` environment is stable and the migration away from
+self-hosted broker and self-rolled JWT tokens into the AWS managed services (Cognito & IoT Core) will
+require the stage and prod environments to be adapted. Before this, I used to run the full stack 
+self-hosted via Coolify.
 
 AWS credentials are configured through `spring.cloud.aws.credentials.access-key` /
-`secret-key`, which the dev profile reads from `.env`. Every other profile resolves credentials from
+`secret-key`, which the `dev` profile reads from `.env`. Every other profile resolves credentials from
 the deployment role through the AWS default credentials chain, so no static keys are needed in stage
 or production.
 
