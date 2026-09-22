@@ -1,0 +1,43 @@
+{
+  "family": "hydrolink-api",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512", "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::468241617065:role/hydrolink-api-exec",
+  "taskRoleArn":      "arn:aws:iam::468241617065:role/hydrolink-api-task",
+  "containerDefinitions": [{
+    "name": "api",
+    "image": "468241617065.dkr.ecr.eu-west-1.amazonaws.com/hydrolink-api:latest",
+    "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
+    "environment": [
+      {"name":"SPRING_PROFILES_ACTIVE","value":"prod"},
+      {"name":"AWS_REGION","value":"eu-west-1"},
+      {"name":"AWS_USER_POOL_ID","value":"eu-west-1_qJxtdtpP9"},
+      {"name":"AWS_USER_POOL_CLIENT_ID","value":"2i6g183l48dtpiamlsih0tcahl"},
+      {"name":"AWS_IDENTITY_POOL_ID","value":"eu-west-1:45bcf106-35e7-4651-97c8-d97b07c5a108"},
+      {"name":"AWS_ACCOUNT_ID","value":"468241617065"},
+      {"name":"DB_URL","value":"jdbc:postgresql://hydrolink-db.cvykckogyhkd.eu-west-1.rds.amazonaws.com:5432/hydrodb"},
+      {"name":"DB_USERNAME","value":"hydro"},
+      {"name":"REDIS_HOST","value":"hydrolink-cache-p9lxso.serverless.euw1.cache.amazonaws.com"},
+      {"name":"REDIS_PORT","value":"6379"},
+      {"name":"REDIS_SSL_ENABLED","value":"true"},
+      {"name":"DEVICE_STATUS_QUEUE","value":"hydrolink-device-status-prod"},
+      {"name":"MINIO_URL","value":"https://s3.eu-west-1.amazonaws.com"},
+      {"name":"MINIO_EXT_URL","value":"https://hydrolink-storage.s3.eu-west-1.amazonaws.com"},
+      {"name":"MINIO_DEFAULT_BUCKETS","value":"hydrolink-storage"},
+      {"name":"MINIO_BUCKET_REGION","value":"eu-west-1"},
+      {"name":"CORS_ALLOWED_ORIGINS","value":""},
+      {"name":"SPRINGDOC_API_DOCS_ENABLED","value":"false"},
+      {"name":"SPRINGDOC_SWAGGER_UI_ENABLED","value":"false"}
+    ],
+    "secrets": [
+      {"name":"DB_PASSWORD","valueFrom":"arn:aws:secretsmanager:eu-west-1:468241617065:secret:hydrolink/db-password-wGfJSv"},
+      {"name":"DEVICE_KEY_SECRET","valueFrom":"arn:aws:secretsmanager:eu-west-1:468241617065:secret:hydrolink/device-key-secret-9ZFckV"},
+      {"name":"DEVICE_PROVISIONING_SECRET","valueFrom":"arn:aws:secretsmanager:eu-west-1:468241617065:secret:hydrolink/device-provisioning-secret-p7vyc9"}
+    ],
+    "logConfiguration":{"logDriver":"awslogs","options":{
+      "awslogs-group":"/ecs/hydrolink-api","awslogs-region":"eu-west-1","awslogs-stream-prefix":"api"}},
+    "healthCheck":{"command":["CMD-SHELL","wget -qO- http://localhost:8080/actuator/health/liveness || exit 1"],
+      "interval":30,"timeout":5,"retries":3,"startPeriod":90}
+  }]
+}

@@ -34,8 +34,9 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class StorageService {
 
-  /** Presigned URLs are valid for 7 days (MinIO max). */
-  private static final long PRESIGNED_URL_EXPIRY_SECONDS = Duration.ofDays(7).toSeconds();
+  /** S3 presigned URLs are re-minted per OTA dispatch; must fit inside the
+   task-role credential lifetime (temporary session token), so keep it short. */
+  private static final long PRESIGNED_URL_EXPIRY_SECONDS = Duration.ofHours(1).toSeconds();
 
   private final MinioClient minioClient;
   private final MinioProperties minioProperties;
@@ -134,16 +135,26 @@ public class StorageService {
 
   /**
    * MinIO builds presigned URLs against the endpoint the client was configured with
-   * ({@code minio.url}, e.g. an internal docker network host). Rewrite the scheme+host+port
-   * portion using {@code minio.extUrl} so devices can actually reach the bucket.
+   * ({@code minio.url}. Rewrite the scheme+host+port portion using {@code minio.extUrl} so
+   * devices can actually reach the bucket.
    */
   private String rewriteEndpointToExternalUrl(String presignedUrl) {
     try {
-      URI uri = new URI(presignedUrl);
-      String externalBase = minioProperties.extUrl().replaceAll("/+$", "");
-      return externalBase + uri.getRawPath() + (uri.getQuery() != null ? "?" + uri.getQuery() : "");
-    } catch (URISyntaxException e) {
-      log.warn("Could not rewrite presigned URL '{}' to external URL; returning as-is", presignedUrl, e);
+      URI uri = URI.create(presignedUrl);
+      URI external = URI.create(minioProperties.extUrl());
+
+      URI rewritten = new URI(
+          external.getScheme(),
+          uri.getUserInfo(),
+          external.getHost(),
+          external.getPort(),
+          uri.getPath(),
+          uri.getQuery(),
+          uri.getFragment());
+
+      return rewritten.toString();
+    } catch (Exception e) {
+      log.warn("Could not rewrite presigned URL '{}'; returning as-is", presignedUrl, e);
       return presignedUrl;
     }
   }

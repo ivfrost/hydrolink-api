@@ -133,7 +133,6 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
-      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -269,6 +268,9 @@
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
           <jmxPort>9002</jmxPort>   <!-- avoid MinIO's port 9001 -->
+          <layers>
+            <enabled>true</enabled>
+          </layers>
           <excludes>
             <exclude>
               <groupId>org.projectlombok</groupId>

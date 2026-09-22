@@ -60,7 +60,7 @@ public class AppDataInit implements ApplicationRunner {
     log.info("Seeded dev admin user bound to Cognito sub {}", sub);
   }
 
-  // Only on non-prod: Seed the database with two devices if they don't exist
+  // Seed the database with two devices if they don't exist (dev only)
   @Bean
   @Profile("!prod")
   public CommandLineRunner initDevices() {

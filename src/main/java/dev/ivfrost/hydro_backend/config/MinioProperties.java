@@ -7,5 +7,6 @@ public record MinioProperties(
     String url,
     String extUrl,
     String bucketName,
+    String bucketRegion,
     String rootUser,
     String rootPassword) {}
