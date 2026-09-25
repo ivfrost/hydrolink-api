@@ -153,18 +153,29 @@ A multi-stage Dockerfile packages the app as a JRE runtime image running as a no
 `docker-compose.prod.yml` composes the API with Postgres, Redis, and MinIO, each with a healthcheck,
 and relies on environment variables for real values. TLS terminates on a
 reverse proxy in front of the app, and `server.forward-headers-strategy=framework` is set for that.
-The AWS side of the infrastructure (rule, SQS, IoT data plane, Cognito pool) lives in the region set 
+The AWS side of the infrastructure (rule, SQS, IoT data plane, Cognito pool) lives in the region set
 by `AWS_REGION`, currently eu-west-1.
 
-As of this time in the development, only the `dev` environment is stable and the migration away from
-self-hosted broker and self-rolled JWT tokens into the AWS managed services (Cognito & IoT Core) will
-require the stage and prod environments to be adapted. Before this, I used to run the full stack 
-self-hosted via Coolify.
+The stage and prod environments have been deployed and validated on AWS following the migration
+to Cognito and IoT Core: the full stack, including an ECS/Fargate deployment with Secrets Manager,
+task-role-based S3 and Redis TLS, has been proven to run end to end in a production-equivalent AWS
+environment. They are currently scaled down to avoid ongoing AWS costs, since this is a personal
+project, rather than left running continuously.
+
+Before the migration to AWS managed services, the full stack ran self-hosted via Coolify.
 
 AWS credentials are configured through `spring.cloud.aws.credentials.access-key` /
 `secret-key`, which the `dev` profile reads from `.env`. Every other profile resolves credentials from
 the deployment role through the AWS default credentials chain, so no static keys are needed in stage
 or production.
+
+## Roadmap
+
+Planned, not yet implemented:
+
+- **Sensor integration via LoRa.** Currently all stations are relay-controlled outputs (valves).
+  Adding LoRa-connected sensors (soil moisture, flow, tank level) is the next major piece, feeding
+  readings back into the same AWS IoT ingestion path used for status today.
 
 ## License
 
