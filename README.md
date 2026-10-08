@@ -177,6 +177,7 @@ immutable tag so every deploy rolls out a fresh task:
 
 ```bash
 TAG=$(git rev-parse --short HEAD)
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 
 # 1. build and push the image first - if the tag is missing, the task cannot pull it
 docker build --target production -t hydrolink-api .
