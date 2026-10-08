@@ -27,7 +27,6 @@ import software.amazon.awscdk.services.ecs.ContainerDefinitionOptions;
 import software.amazon.awscdk.services.ecs.ContainerImage;
 import software.amazon.awscdk.services.ecs.DeploymentCircuitBreaker;
 import software.amazon.awscdk.services.ecs.FargateTaskDefinition;
-import software.amazon.awscdk.services.ecs.HealthCheck;
 import software.amazon.awscdk.services.ecs.LogDriver;
 import software.amazon.awscdk.services.ecs.PortMapping;
 import software.amazon.awscdk.services.ecs.Protocol;
@@ -314,14 +313,10 @@ public class InfraStack extends Stack {
                 .removalPolicy(RemovalPolicy.DESTROY)
                 .build())
             .build()))
-        .healthCheck(HealthCheck.builder()
-            .command(List.of("CMD-SHELL",
-                "wget -qO- http://localhost:8080/actuator/health/liveness || exit 1"))
-            .interval(Duration.seconds(30))
-            .timeout(Duration.seconds(5))
-            .retries(3)
-            .startPeriod(Duration.seconds(90))
-            .build())
+        // No container health check: the runtime image (eclipse-temurin JRE) has no wget or
+        // curl, so a CMD-SHELL probe reads the container as unhealthy and ECS replaces the
+        // task in a loop. The ALB target-group check on /actuator/health/liveness plus the
+        // deployment circuit breaker cover task health, without adding a binary to the image.
         .build());
 
     Cluster cluster = Cluster.Builder.create(this, "HydroLinkCluster")
@@ -339,6 +334,7 @@ public class InfraStack extends Stack {
             .publicLoadBalancer(true)
             .certificate(cert)
             .redirectHttp(true)
+            .healthCheckGracePeriod(Duration.seconds(180))
             .taskSubnets(privateSubnets)
             .securityGroups(List.of(apiSg))
             .circuitBreaker(DeploymentCircuitBreaker.builder()

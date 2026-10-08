@@ -158,9 +158,9 @@ queue, the two IAM roles, the ECS task definition, and an internet-facing ALB in
 service. `cdk.json` wires `cdk synth`/`deploy` to the Maven `exec` plugin, so the stack is built from the
 same repository as the application and synthesises to CloudFormation.
 
-The rule, SQS queue, IoT data plane, and Cognito pool live in the region set by `AWS_REGION`
-(currently `eu-west-1`). The S3 bucket and the ECR repository are **referenced, not created** by the
-stack: their lifecycle is outside it, so uploaded firmware survives a stack teardown while the
+The rule, SQS queue, IoT data plane, and Cognito pool live in the region set by `AWS_REGION`, which this
+stack is pinned to `eu-west-1`. The S3 bucket and the ECR repository are **referenced, not created** by
+the stack: their lifecycle is outside it, so uploaded firmware survives a stack teardown while the
 database does not (see *Teardown* below).
 
 ### Prerequisites
@@ -197,31 +197,31 @@ After a successful deploy, point DNS at the load balancer. `cdk deploy` prints t
 (`https://<alb-dns>`) and `HydroLinkServiceLoadBalancerDNS` outputs; alias the domain's A record at the
 ALB (or a CNAME), since TLS terminates at the ALB and port 80 redirects to 443.
 
-### What `cdk diff` should show
-
-After changing only application code, a diff should list **only** the IAM policy, a new task-definition
-revision, and (on first run) the resources being created. If `cdk diff` ever proposes replacing the
-database, the ALB, or the VPC, something unintended changed in `InfraStack` — stop and read the diff
-before confirming.
-
 ### Teardown and billing
 
 `cdk destroy` removes the whole stack. The RDS instance uses `RemovalPolicy.DESTROY`, so **the database
-data is deleted for good** — there is no final snapshot. The S3 bucket is imported, so it and its
+data is deleted for good**: there is no final snapshot. The S3 bucket is imported, so it and its
 contents survive. The practical consequence: uploaded firmware and the database can drift apart after a
 teardown/rebuild, since the bucket keeps objects the fresh database has no rows for.
 
-While the stack is up, the NAT gateway, the ALB, and RDS bill continuously (ElastiCache Serverless
-bills a small amount, Fargate only while tasks run). Run `cdk destroy` between demos, or scale the
-service to zero with `aws ecs update-service --cluster hydrolink-cluster --service hydrolink-api
---desired-count 0` to stop compute billing while keeping the environment.
+Keeping the database inside the stack's lifecycle (created and destroyed with it) is a deliberate choice
+for this deployment, so the whole environment can be brought down and rebuilt cleanly. For a production
+deployment the database should be **decoupled from the stack**: imported like the bucket, or
+moved to its own long-lived stack, so application deploys and teardown never touch it. As written,
+`cdk destroy` takes the data with it.
 
-### Docker Compose (self-hosted image)
+While the stack is up, the NAT gateway, the ALB, and RDS bill continuously (ElastiCache Serverless
+bills a small amount, Fargate only while tasks run). To stop compute billing without tearing down the
+environment, scale the service to zero: `aws ecs update-service --cluster hydrolink-cluster --service
+hydrolink-api --desired-count 0`.
+
+### Alternative: Docker Compose
 
 A multi-stage Dockerfile packages the app as a JRE runtime image running as a non-root user.
 `docker-compose.prod.yml` composes the API with Postgres, Redis, and MinIO, each with a healthcheck, and
 relies on environment variables for real values. TLS terminates on a reverse proxy in front of the app,
-and `server.forward-headers-strategy=framework` is set for that.
+and `server.forward-headers-strategy=framework` is set for that. This is the path to run the full stack on
+a single host instead of on AWS.
 
 AWS credentials are configured through `spring.cloud.aws.credentials.access-key` / `secret-key`, which
 the `dev` profile reads from `.env`. Every other profile resolves credentials from the deployment role
