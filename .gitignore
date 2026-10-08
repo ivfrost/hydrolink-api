@@ -64,3 +64,6 @@ application-test.properties
 
 ### Tooling ###
 /.kilo/
+
+### CDK
+/cdk.out

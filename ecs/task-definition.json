@@ -24,7 +24,7 @@
       {"name":"DEVICE_STATUS_QUEUE","value":"hydrolink-device-status-prod"},
       {"name":"MINIO_URL","value":"https://s3.eu-west-1.amazonaws.com"},
       {"name":"MINIO_EXT_URL","value":"https://hydrolink-storage.s3.eu-west-1.amazonaws.com"},
-      {"name":"MINIO_DEFAULT_BUCKETS","value":"hydrolink-storage"},
+      {"name":"MINIO_BUCKET_NAME","value":"hydrolink-storage"},
       {"name":"MINIO_BUCKET_REGION","value":"eu-west-1"},
       {"name":"CORS_ALLOWED_ORIGINS","value":""},
       {"name":"SPRINGDOC_API_DOCS_ENABLED","value":"false"},

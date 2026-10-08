@@ -1,342 +1,375 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://maven.apache.org/POM/4.0.0"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-
-  <parent>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-parent</artifactId>
-    <version>4.1.0</version>
-    <relativePath/>
-  </parent>
-
-  <groupId>dev.ivfrost</groupId>
   <artifactId>hydrolink-api</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
-  <name>hydro-api</name>
-  <description>Hydro API</description>
-
-  <properties>
-    <java.version>25</java.version>
-    <spring-modulith.version>2.0.1</spring-modulith.version>
-    <minio.version>9.0.3</minio.version>
-    <okhttp.version>4.12.0</okhttp.version>
-    <okio.version>3.4.0</okio.version>
-    <spring-cloud-aws.version>4.1.1</spring-cloud-aws.version>
-  </properties>
-
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>org.springframework.modulith</groupId>
-        <artifactId>spring-modulith-bom</artifactId>
-        <version>${spring-modulith.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>io.awspring.cloud</groupId>
-        <artifactId>spring-cloud-aws-dependencies</artifactId>
-        <version>${spring-cloud-aws.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
-
-  <dependencies>
-    <dependency>
-      <groupId>com.auth0</groupId>
-      <artifactId>java-jwt</artifactId>
-      <version>4.6.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.github.ben-manes.caffeine</groupId>
-      <artifactId>caffeine</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.h2database</groupId>
-      <artifactId>h2</artifactId>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.squareup.okhttp3</groupId>
-      <artifactId>okhttp</artifactId>
-      <version>${okhttp.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.squareup.okio</groupId>
-      <artifactId>okio</artifactId>
-      <version>${okio.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.minio</groupId>
-      <artifactId>minio</artifactId>
-      <version>${minio.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.rest-assured</groupId>
-      <artifactId>rest-assured</artifactId>
-      <version>6.0.0</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.swagger.core.v3</groupId>
-      <artifactId>swagger-annotations</artifactId>
-      <version>2.2.41</version>
-    </dependency>
-    <dependency>
-      <groupId>org.flywaydb</groupId>
-      <artifactId>flyway-core</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.flywaydb</groupId>
-      <artifactId>flyway-database-postgresql</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.hamcrest</groupId>
-      <artifactId>hamcrest</artifactId>
-      <version>3.0</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.mapstruct</groupId>
-      <artifactId>mapstruct</artifactId>
-      <version>1.6.3</version>
-    </dependency>
-    <dependency>
-      <groupId>org.postgresql</groupId>
-      <artifactId>postgresql</artifactId>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.projectlombok</groupId>
-      <artifactId>lombok</artifactId>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>org.semver4j</groupId>
-      <artifactId>semver4j</artifactId>
-      <version>6.0.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.springdoc</groupId>
-      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-      <version>3.1.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-docker-compose</artifactId>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-actuator</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-amqp</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-cache</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-jpa</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-redis</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-flyway</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-security</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-security-test</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-validation</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-webmvc</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-webmvc-test</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.awspring.cloud</groupId>
-      <artifactId>spring-cloud-aws-starter-sqs</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>cognitoidentityprovider</artifactId>
-      <version>2.54.17</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>cognitoidentity</artifactId>
-      <version>2.54.17</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>iotdataplane</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>iot</artifactId>
-      <version>2.54.17</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.modulith</groupId>
-      <artifactId>spring-modulith-actuator</artifactId>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.modulith</groupId>
-      <artifactId>spring-modulith-observability</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.modulith</groupId>
-      <artifactId>spring-modulith-starter-core</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.modulith</groupId>
-      <artifactId>spring-modulith-starter-jdbc</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.modulith</groupId>
-      <artifactId>spring-modulith-starter-test</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
-    </dependency>
-  </dependencies>
 
   <build>
     <plugins>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <source>25</source>
-          <target>25</target>
           <annotationProcessorPaths>
             <path>
-              <groupId>org.projectlombok</groupId>
               <artifactId>lombok</artifactId>
+              <groupId>org.projectlombok</groupId>
             </path>
             <path>
-              <groupId>org.mapstruct</groupId>
               <artifactId>mapstruct-processor</artifactId>
+              <groupId>org.mapstruct</groupId>
               <version>1.6.3</version>
             </path>
             <path>
-              <groupId>org.projectlombok</groupId>
               <artifactId>lombok-mapstruct-binding</artifactId>
+              <groupId>org.projectlombok</groupId>
               <version>0.2.0</version>
             </path>
           </annotationProcessorPaths>
+          <source>25</source>
+          <target>25</target>
         </configuration>
+        <groupId>org.apache.maven.plugins</groupId>
       </plugin>
 
       <plugin>
-        <groupId>org.graalvm.buildtools</groupId>
         <artifactId>native-maven-plugin</artifactId>
+        <groupId>org.graalvm.buildtools</groupId>
       </plugin>
 
       <plugin>
-        <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
-          <jmxPort>9002</jmxPort>   <!-- avoid MinIO's port 9001 -->
+          <excludes>
+            <exclude>
+              <artifactId>lombok</artifactId>
+              <groupId>org.projectlombok</groupId>
+            </exclude>
+          </excludes>   <!-- avoid MinIO's port 9001 -->
+          <jmxPort>9002</jmxPort>
           <layers>
             <enabled>true</enabled>
           </layers>
-          <excludes>
-            <exclude>
-              <groupId>org.projectlombok</groupId>
-              <artifactId>lombok</artifactId>
-            </exclude>
-          </excludes>
         </configuration>
         <executions>
           <execution>
-            <id>pre-integration-test</id>
-            <goals>
-              <goal>start</goal>
-            </goals>
             <configuration>
               <profiles>
                 <profile>dev</profile>   <!-- enables public OpenAPI endpoints -->
               </profiles>
             </configuration>
+            <goals>
+              <goal>start</goal>
+            </goals>
+            <id>pre-integration-test</id>
           </execution>
           <execution>
-            <id>post-integration-test</id>
             <goals>
               <goal>stop</goal>
             </goals>
+            <id>post-integration-test</id>
           </execution>
         </executions>
+        <groupId>org.springframework.boot</groupId>
       </plugin>
 
       <plugin>
-        <groupId>org.springdoc</groupId>
         <artifactId>springdoc-openapi-maven-plugin</artifactId>
-        <version>1.5</version>
-
         <configuration>
           <apiDocsUrl>http://localhost:8080/api-docs.yaml/public</apiDocsUrl>
-          <outputFileName>openapi-public.yaml</outputFileName>
           <outputDir>${project.build.directory}/generated-resources</outputDir>
+          <outputFileName>openapi-public.yaml</outputFileName>
         </configuration>
-
         <executions>
           <execution>
-            <id>public</id>
-            <phase>integration-test</phase>
-            <goals>
-              <goal>generate</goal>
-            </goals>
             <configuration>
               <apiDocsUrl>http://localhost:8080/api-docs.yaml/public</apiDocsUrl>
-              <outputFileName>openapi-public.yaml</outputFileName>
               <outputDir>${project.build.directory}/generated-resources</outputDir>
+              <outputFileName>openapi-public.yaml</outputFileName>
             </configuration>
-          </execution>
-          <execution>
-            <id>internal</id>
-            <phase>integration-test</phase>
             <goals>
               <goal>generate</goal>
             </goals>
+            <id>public</id>
+            <phase>integration-test</phase>
+          </execution>
+          <execution>
             <configuration>
               <apiDocsUrl>http://localhost:8080/api-docs.yaml/internal</apiDocsUrl>
-              <outputFileName>openapi-internal.yaml</outputFileName>
               <outputDir>${project.build.directory}/generated-resources</outputDir>
+              <outputFileName>openapi-internal.yaml</outputFileName>
+
             </configuration>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+            <id>internal</id>
+            <phase>integration-test</phase>
           </execution>
         </executions>
+
+        <groupId>org.springdoc</groupId>
+
+        <version>1.5</version>
+      </plugin>
+      <plugin>
+        <artifactId>exec-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>dev.ivfrost.hydro_backend.infra.InfraApp</mainClass>
+        </configuration>
+        <groupId>org.codehaus.mojo</groupId>
+        <version>3.6.4</version>
       </plugin>
     </plugins>
   </build>
+
+  <dependencies>
+    <dependency>
+      <artifactId>java-jwt</artifactId>
+      <groupId>com.auth0</groupId>
+      <version>4.6.0</version>
+    </dependency>
+    <dependency>
+      <artifactId>caffeine</artifactId>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>h2</artifactId>
+      <groupId>com.h2database</groupId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <artifactId>okhttp</artifactId>
+      <groupId>com.squareup.okhttp3</groupId>
+      <version>${okhttp.version}</version>
+    </dependency>
+    <dependency>
+      <artifactId>okio</artifactId>
+      <groupId>com.squareup.okio</groupId>
+      <version>${okio.version}</version>
+    </dependency>
+    <dependency>
+      <artifactId>minio</artifactId>
+      <groupId>io.minio</groupId>
+      <version>${minio.version}</version>
+    </dependency>
+    <dependency>
+      <artifactId>rest-assured</artifactId>
+      <groupId>io.rest-assured</groupId>
+      <scope>test</scope>
+      <version>6.0.0</version>
+    </dependency>
+    <dependency>
+      <artifactId>swagger-annotations</artifactId>
+      <groupId>io.swagger.core.v3</groupId>
+      <version>2.2.41</version>
+    </dependency>
+    <dependency>
+      <artifactId>flyway-core</artifactId>
+      <groupId>org.flywaydb</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>flyway-database-postgresql</artifactId>
+      <groupId>org.flywaydb</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>hamcrest</artifactId>
+      <groupId>org.hamcrest</groupId>
+      <scope>test</scope>
+      <version>3.0</version>
+    </dependency>
+    <dependency>
+      <artifactId>mapstruct</artifactId>
+      <groupId>org.mapstruct</groupId>
+      <version>1.6.3</version>
+    </dependency>
+    <dependency>
+      <artifactId>postgresql</artifactId>
+      <groupId>org.postgresql</groupId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <artifactId>lombok</artifactId>
+      <groupId>org.projectlombok</groupId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <artifactId>semver4j</artifactId>
+      <groupId>org.semver4j</groupId>
+      <version>6.0.0</version>
+    </dependency>
+    <dependency>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+      <groupId>org.springdoc</groupId>
+      <version>3.1.0</version>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-docker-compose</artifactId>
+      <groupId>org.springframework.boot</groupId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+      <groupId>org.springframework.boot</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-starter-amqp</artifactId>
+      <groupId>org.springframework.boot</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-starter-cache</artifactId>
+      <groupId>org.springframework.boot</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+      <groupId>org.springframework.boot</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+      <groupId>org.springframework.boot</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-starter-flyway</artifactId>
+      <groupId>org.springframework.boot</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-starter-security</artifactId>
+      <groupId>org.springframework.boot</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-starter-security-test</artifactId>
+      <groupId>org.springframework.boot</groupId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-starter-validation</artifactId>
+      <groupId>org.springframework.boot</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-starter-webmvc</artifactId>
+      <groupId>org.springframework.boot</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-starter-webmvc-test</artifactId>
+      <groupId>org.springframework.boot</groupId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <artifactId>spring-cloud-aws-starter-sqs</artifactId>
+      <groupId>io.awspring.cloud</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>cognitoidentityprovider</artifactId>
+      <groupId>software.amazon.awssdk</groupId>
+      <scope>compile</scope>
+      <version>2.54.17</version>
+    </dependency>
+    <dependency>
+      <artifactId>cognitoidentity</artifactId>
+      <groupId>software.amazon.awssdk</groupId>
+      <scope>compile</scope>
+      <version>2.54.17</version>
+    </dependency>
+    <dependency>
+      <artifactId>iotdataplane</artifactId>
+      <groupId>software.amazon.awssdk</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>iot</artifactId>
+      <groupId>software.amazon.awssdk</groupId>
+      <scope>compile</scope>
+      <version>2.54.17</version>
+    </dependency>
+    <dependency>
+      <artifactId>spring-modulith-actuator</artifactId>
+      <groupId>org.springframework.modulith</groupId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <artifactId>spring-modulith-observability</artifactId>
+      <groupId>org.springframework.modulith</groupId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <artifactId>spring-modulith-starter-core</artifactId>
+      <groupId>org.springframework.modulith</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>spring-modulith-starter-jdbc</artifactId>
+      <groupId>org.springframework.modulith</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>spring-modulith-starter-test</artifactId>
+      <groupId>org.springframework.modulith</groupId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+      <groupId>org.springframework.boot</groupId>
+    </dependency>
+
+    <!-- AWS Cloud Development Kit -->
+    <dependency>
+      <artifactId>aws-cdk-lib</artifactId>
+      <groupId>software.amazon.awscdk</groupId>
+      <version>${cdk.version}</version>
+    </dependency>
+
+    <dependency>
+      <artifactId>constructs</artifactId>
+      <groupId>software.constructs</groupId>
+      <version>${constructs.version}</version>
+    </dependency>
+
+    <dependency>
+      <artifactId>junit-jupiter</artifactId>
+      <groupId>org.junit.jupiter</groupId>
+      <scope>test</scope>
+      <version>${junit.version}</version>
+    </dependency>
+  </dependencies>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <artifactId>spring-modulith-bom</artifactId>
+        <groupId>org.springframework.modulith</groupId>
+        <scope>import</scope>
+        <type>pom</type>
+        <version>${spring-modulith.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>spring-cloud-aws-dependencies</artifactId>
+        <groupId>io.awspring.cloud</groupId>
+        <scope>import</scope>
+        <type>pom</type>
+        <version>${spring-cloud-aws.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+  <description>Hydro API</description>
+  <groupId>dev.ivfrost</groupId>
+  <modelVersion>4.0.0</modelVersion>
+
+  <name>hydro-api</name>
+
+  <parent>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <groupId>org.springframework.boot</groupId>
+    <relativePath/>
+    <version>4.1.0</version>
+  </parent>
+
+  <properties>
+    <cdk.version>[2.272.0,3.0.0)</cdk.version>
+    <constructs.version>[10.5.0,11.0.0)</constructs.version>
+    <java.version>25</java.version>
+    <junit.version>5.7.1</junit.version>
+    <minio.version>9.0.3</minio.version>
+    <okhttp.version>4.12.0</okhttp.version>
+    <okio.version>3.4.0</okio.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <spring-cloud-aws.version>4.1.1</spring-cloud-aws.version>
+    <spring-modulith.version>2.0.1</spring-modulith.version>
+  </properties>
+
+  <version>0.0.1-SNAPSHOT</version>
 </project>
