@@ -66,6 +66,16 @@ public class InfraStack extends Stack {
     final String IDENTITY_POOL_ID = "eu-west-1:45bcf106-35e7-4651-97c8-d97b07c5a108";
     final String CERT_ARN =
         "arn:aws:acm:eu-west-1:468241617065:certificate/c0a2efe1-e73c-4f6c-aa46-455c4f07c030";
+    // Image tag from CDK context: `cdk deploy -c imageTag=$(git rev-parse --short HEAD)`.
+    // Required on purpose: without a changing tag, an unchanged task definition means
+    // `cdk deploy` will not roll out a newly pushed image (the stale-:latest trap), and a
+    // silent `latest` fallback would hide the mistake. Fail the synth instead.
+    final String IMAGE_TAG = (String) this.getNode().tryGetContext("imageTag");
+    if (IMAGE_TAG == null || IMAGE_TAG.isBlank()) {
+      throw new IllegalArgumentException(
+          "Missing required CDK context 'imageTag'. Deploy with "
+              + "-c imageTag=$(git rev-parse --short HEAD) so each push rolls out a new revision.");
+    }
 
     IBucket storageBucket = Bucket.fromBucketName(this, "HydrolinkStorage", BUCKET_NAME);
     Queue deviceStatusDLQ = Queue.Builder.create(this, "DeviceStatusDLQ")
@@ -118,7 +128,7 @@ public class InfraStack extends Stack {
         .publiclyAccessible(false)
         .vpc(vpc)
         .vpcSubnets(privateSubnets)
-        .removalPolicy(RemovalPolicy.SNAPSHOT)
+        .removalPolicy(RemovalPolicy.DESTROY)
         .build();
 
     // Serverless ElastiCache only has L1 construct, requiring manual SG creation
@@ -196,9 +206,9 @@ public class InfraStack extends Stack {
                         .effect(Effect.ALLOW)
                         .actions(
                             List.of("sqs:ReceiveMessage", "sqs:DeleteMessage",
-                                "sqs:GetQueueAttributes"))
+                                "sqs:GetQueueAttributes", "sqs:GetQueueUrl"))
                         .resources(
-                            List.of(deviceStatusQueue.getQueueArn(), deviceStatusDLQ.getQueueArn()))
+                            List.of(deviceStatusQueue.getQueueArn()))
                         .build()
                 ))
                 .build(),
@@ -210,9 +220,9 @@ public class InfraStack extends Stack {
                         .actions(List.of("iot:Publish"))
                         .resources(List.of(
                             "arn:aws:iot:" + this.getRegion() + ":" + this.getAccount()
-                                + ":topic/hydrolink/*/command",
+                                + ":topic/hydro/*/command",
                             "arn:aws:iot:" + this.getRegion() + ":" + this.getAccount()
-                                + ":topic/hydrolink/*/announce"
+                                + ":topic/hydro/*/announce"
                         ))
                         .build()
                 ))
@@ -258,7 +268,7 @@ public class InfraStack extends Stack {
 
     taskDefinition.addContainer("Api", ContainerDefinitionOptions.builder()
         .containerName("api")
-        .image(ContainerImage.fromEcrRepository(repo, "latest"))
+        .image(ContainerImage.fromEcrRepository(repo, IMAGE_TAG))
         .portMappings(List.of(PortMapping.builder()
             .containerPort(8080)
             .protocol(Protocol.TCP)

@@ -28,6 +28,8 @@ What works today:
 - AWS IoT Core as the single message bus; the self-hosted MQTT broker was retired
 - OAuth2 resource server validating Cognito-issued JWTs (the app sends a bearer token; the API
   never sees a password)
+- AWS deployment defined as code with the AWS CDK (Java); ECS Fargate behind an ALB, with RDS,
+  ElastiCache Serverless, S3, SQS, and IAM task roles replacing static keys
 - Dockerized dev and production profiles, fail-fast configuration with no defaults
 
 ## Architecture
@@ -149,22 +151,80 @@ production keep it off unless explicitly enabled.
 
 ## Deployment
 
+The AWS side of the stack is defined as code with the **AWS CDK** (Java), in
+`src/main/java/dev/ivfrost/hydro_backend/infra/`. `InfraApp` is the entry point; `InfraStack` provisions
+the VPC, subnets and security groups, RDS Postgres, ElastiCache Serverless, the SQS queue and dead-letter
+queue, the two IAM roles, the ECS task definition, and an internet-facing ALB in front of a Fargate
+service. `cdk.json` wires `cdk synth`/`deploy` to the Maven `exec` plugin, so the stack is built from the
+same repository as the application and synthesises to CloudFormation.
+
+The rule, SQS queue, IoT data plane, and Cognito pool live in the region set by `AWS_REGION`
+(currently `eu-west-1`). The S3 bucket and the ECR repository are **referenced, not created** by the
+stack: their lifecycle is outside it, so uploaded firmware survives a stack teardown while the
+database does not (see *Teardown* below).
+
+### Prerequisites
+
+- AWS credentials with permission to deploy CloudFormation, IAM, ECS, RDS, ElastiCache, the ALB, and SQS
+- One-time per account/region: `cdk bootstrap`
+- A built and pushed image in ECR (see *Order matters* below)
+
+### Order matters: build, push, deploy
+
+The image tag is **required** by the stack. `cdk deploy` fails the synth if `imageTag` is not supplied,
+because a `:latest` tag lets ECS reuse a cached image and silently skips the new revision. Deploy with an
+immutable tag so every deploy rolls out a fresh task:
+
+```bash
+TAG=$(git rev-parse --short HEAD)
+
+# 1. build and push the image first - if the tag is missing, the task cannot pull it
+docker build --target production -t hydrolink-api .
+docker tag hydrolink-api:latest $ACCOUNT.dkr.ecr.eu-west-1.amazonaws.com/hydrolink-api:$TAG
+aws ecr get-login-password --region eu-west-1 \
+  | docker login --username AWS --password-stdin $ACCOUNT.dkr.ecr.eu-west-1.amazonaws.com
+docker push $ACCOUNT.dkr.ecr.eu-west-1.amazonaws.com/hydrolink-api:$TAG
+
+# 2. check what will change before touching AWS
+cdk diff -c imageTag=$TAG
+
+# 3. deploy
+cdk deploy -c imageTag=$TAG
+```
+
+After a successful deploy, point DNS at the load balancer. `cdk deploy` prints the `AlbUrl`
+(`https://<alb-dns>`) and `HydroLinkServiceLoadBalancerDNS` outputs; alias the domain's A record at the
+ALB (or a CNAME), since TLS terminates at the ALB and port 80 redirects to 443.
+
+### What `cdk diff` should show
+
+After changing only application code, a diff should list **only** the IAM policy, a new task-definition
+revision, and (on first run) the resources being created. If `cdk diff` ever proposes replacing the
+database, the ALB, or the VPC, something unintended changed in `InfraStack` — stop and read the diff
+before confirming.
+
+### Teardown and billing
+
+`cdk destroy` removes the whole stack. The RDS instance uses `RemovalPolicy.DESTROY`, so **the database
+data is deleted for good** — there is no final snapshot. The S3 bucket is imported, so it and its
+contents survive. The practical consequence: uploaded firmware and the database can drift apart after a
+teardown/rebuild, since the bucket keeps objects the fresh database has no rows for.
+
+While the stack is up, the NAT gateway, the ALB, and RDS bill continuously (ElastiCache Serverless
+bills a small amount, Fargate only while tasks run). Run `cdk destroy` between demos, or scale the
+service to zero with `aws ecs update-service --cluster hydrolink-cluster --service hydrolink-api
+--desired-count 0` to stop compute billing while keeping the environment.
+
+### Docker Compose (self-hosted image)
+
 A multi-stage Dockerfile packages the app as a JRE runtime image running as a non-root user.
-`docker-compose.prod.yml` composes the API with Postgres, Redis, and MinIO, each with a healthcheck,
-and relies on environment variables for real values. TLS terminates on a
-reverse proxy in front of the app, and `server.forward-headers-strategy=framework` is set for that.
-The AWS side of the infrastructure (rule, SQS, IoT data plane, Cognito pool) lives in the region set 
-by `AWS_REGION`, currently eu-west-1.
+`docker-compose.prod.yml` composes the API with Postgres, Redis, and MinIO, each with a healthcheck, and
+relies on environment variables for real values. TLS terminates on a reverse proxy in front of the app,
+and `server.forward-headers-strategy=framework` is set for that.
 
-As of this time in the development, only the `dev` environment is stable and the migration away from
-self-hosted broker and self-rolled JWT tokens into the AWS managed services (Cognito & IoT Core) will
-require the stage and prod environments to be adapted. Before this, I used to run the full stack 
-self-hosted via Coolify.
-
-AWS credentials are configured through `spring.cloud.aws.credentials.access-key` /
-`secret-key`, which the `dev` profile reads from `.env`. Every other profile resolves credentials from
-the deployment role through the AWS default credentials chain, so no static keys are needed in stage
-or production.
+AWS credentials are configured through `spring.cloud.aws.credentials.access-key` / `secret-key`, which
+the `dev` profile reads from `.env`. Every other profile resolves credentials from the deployment role
+through the AWS default credentials chain, so no static keys are needed in stage or production.
 
 ## License
 
