@@ -1,14 +1,11 @@
 package dev.ivfrost.hydro_backend.schedules.internal;
 
 import dev.ivfrost.hydro_backend.config.CommandGateway;
-import dev.ivfrost.hydro_backend.devices.DeviceCommandAction;
-import dev.ivfrost.hydro_backend.devices.DeviceCommandCause;
-import dev.ivfrost.hydro_backend.devices.DeviceCommandRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
 import dev.ivfrost.hydro_backend.devices.ScheduleDeviceProvider;
-import dev.ivfrost.hydro_backend.schedules.ScheduleMapper;
 import dev.ivfrost.hydro_backend.devices.ScheduleNotFoundException;
+import dev.ivfrost.hydro_backend.schedules.ScheduleMapper;
 import dev.ivfrost.hydro_backend.schedules.ScheduleRequest;
 import dev.ivfrost.hydro_backend.schedules.ScheduleResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,6 +14,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
@@ -31,15 +29,18 @@ public class ScheduleService {
   private final ScheduleDeviceProvider scheduleDeviceProvider;
   private final CommandGateway commandGateway;
   private final ObjectMapper objectMapper;
+  private final ApplicationEventPublisher applicationEventPublisher;
+  private final ScheduleSyncRepository scheduleSyncRepository;
 
   /**
    * Retrieves the schedule for a specific device and day of the week.
    *
    * @param deviceKey the unique key of the device for which the schedule is to be retrieved
-   * @param date the date for which the schedule is to be retrieved
+   * @param date      the date for which the schedule is to be retrieved
    * @return the schedule for the specified device and day of the week
-   * @throws DeviceNotFoundException if the device with the given key does not exist
-   * @throws ScheduleNotFoundException if the schedule for the given device and day of week does not exist
+   * @throws DeviceNotFoundException   if the device with the given key does not exist
+   * @throws ScheduleNotFoundException if the schedule for the given device and day of week does not
+   *                                   exist
    */
   public ScheduleResponse getSchedule(String deviceKey, LocalDate date) {
     scheduleDeviceProvider.requireDeviceByKey(deviceKey);
@@ -53,7 +54,7 @@ public class ScheduleService {
    *
    * @param deviceKey the unique key of the device for which the schedules are to be retrieved
    * @return a list of schedules for the specified device
-   * @throws DeviceNotFoundException if the device with the given key does not exist
+   * @throws DeviceNotFoundException   if the device with the given key does not exist
    * @throws ScheduleNotFoundException if no schedules exist for the given device
    */
   public List<ScheduleResponse> getSchedules(String deviceKey) {
@@ -63,19 +64,21 @@ public class ScheduleService {
   }
 
   /**
-   * Creates or updates a schedule for a specific device and day of the week and publishes it on
-   * the device's command topic.
-   * If a schedule already exists for the given device and day, it will be updated with the new
-   * time windows provided in the request. If no schedule exists, a new one will be created.
+   * Creates or updates a schedule for a specific device and day of the week and publishes it on the
+   * device's command topic. If a schedule already exists for the given device and day, it will be
+   * updated with the new time windows provided in the request. If no schedule exists, a new one
+   * will be created.
    *
-   * @param deviceKey the unique key of the device for which the schedule is to be created or updated
-   * @param time the date for which the schedule is to be created or updated
-   * @param request the schedule request containing the time windows to be set for the schedule
+   * @param deviceKey the unique key of the device for which the schedule is to be created or
+   *                  updated
+   * @param time      the date for which the schedule is to be created or updated
+   * @param request   the schedule request containing the time windows to be set for the schedule
    * @return the created or updated schedule response
    * @throws DeviceNotFoundException if the device with the given key does not exist
    */
   @Transactional
-  public ScheduleResponse upsertSchedule(String deviceKey, LocalDate time, ScheduleRequest request) {
+  public ScheduleResponse upsertSchedule(String deviceKey, LocalDate time,
+      ScheduleRequest request) {
     Schedule schedule = scheduleRepository.findByDeviceKeyAndDate(deviceKey, time)
         .orElseGet(() -> {
           DeviceResponse deviceResponse = scheduleDeviceProvider.getDeviceByKey(deviceKey);
@@ -87,9 +90,9 @@ public class ScheduleService {
     schedule.getWindows().forEach(w -> w.setSchedule(schedule));
 
     scheduleRepository.save(schedule);
-    DeviceCommandRequest command = DeviceCommandRequest.builder().action(DeviceCommandAction.SET_SCHEDULE).cause(
-        DeviceCommandCause.MANUAL).date(time).windows(request.windows()).build();
-    commandGateway.publishCommand(deviceKey, command);
+    scheduleSyncRepository.bump(deviceKey);
+    long version = scheduleSyncRepository.currentVersion(deviceKey);
+    applicationEventPublisher.publishEvent(new ScheduleChangedEvent(deviceKey, version));
 
     return enrich(schedule);
   }
@@ -99,8 +102,8 @@ public class ScheduleService {
    * Deletes the schedule for a specific device and day of the week.
    *
    * @param deviceKey the unique key of the device for which the schedule is to be deleted
-   * @param date the date for which the schedule is to be deleted
-   * @throws DeviceNotFoundException if the device with the given key does not exist
+   * @param date      the date for which the schedule is to be deleted
+   * @throws DeviceNotFoundException   if the device with the given key does not exist
    * @throws ScheduleNotFoundException if the schedule for the given device and day of week
    */
   @Transactional

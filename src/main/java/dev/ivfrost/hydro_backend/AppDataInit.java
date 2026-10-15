@@ -44,7 +44,8 @@ public class AppDataInit implements ApplicationRunner {
     }
 
     String sub = cognitoUserSyncService.ensureDevUser(
-        seedProperties.adminEmail(), seedProperties.adminPassword(), ADMIN_USERNAME, ADMIN_FULL_NAME);
+        seedProperties.adminEmail(), seedProperties.adminPassword(), ADMIN_USERNAME,
+        ADMIN_FULL_NAME);
 
     User adminUser = User.builder()
         .sub(sub)

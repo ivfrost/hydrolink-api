@@ -10,5 +10,9 @@ import org.springframework.stereotype.Repository;
 public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
 
   List<Schedule> findByDeviceKey(String deviceKey);
+
   Optional<Schedule> findByDeviceKeyAndDate(String deviceKey, LocalDate date);
+
+  List<Schedule> findByDeviceKeyAndDateBetween(String deviceKey, LocalDate dateAfter,
+      LocalDate dateBefore);
 }

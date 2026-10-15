@@ -15,6 +15,8 @@ import java.time.LocalTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 @Builder
 @Data
@@ -51,8 +53,11 @@ public class TimeWindow {
 
   @ManyToOne
   @JoinColumn(name = "schedule_id", nullable = false)
+  @ToString.Exclude
+  @EqualsAndHashCode.Exclude
   private Schedule schedule;
 
-  protected TimeWindow() {}
+  protected TimeWindow() {
+  }
 }
 
