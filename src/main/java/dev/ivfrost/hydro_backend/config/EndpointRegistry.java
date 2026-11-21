@@ -15,7 +15,8 @@ public class EndpointRegistry {
   private static final List<String> APP_PUBLIC = List.of(
       "/v1/users/validate/**",
       "/v1/validation/**",
-      "/actuator/**"
+      "/actuator/**",
+      "/error"
   );
   private static final List<String> SWAGGER = List.of(
       "/api-docs",

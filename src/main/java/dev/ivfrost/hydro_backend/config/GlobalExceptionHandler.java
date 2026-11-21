@@ -29,6 +29,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.CognitoIdentityProviderException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.NotAuthorizedException;
@@ -118,6 +119,15 @@ public class GlobalExceptionHandler {
     log.warn("Device fetch failed: {}", ex.getMessage());
     return ResponseEntity.status(HttpStatus.NOT_FOUND)
         .body(ApiResponse.error(HttpStatus.NOT_FOUND, ErrorCodes.DEVICE_FETCH_FAILED, ex.getMessage()));
+  }
+
+  @ExceptionHandler(NoResourceFoundException.class)
+  public ResponseEntity<ApiResponse<Void>> handleNoResourceFoundException(
+      NoResourceFoundException ex) {
+    log.warn("No route for {} {}", ex.getHttpMethod(), ex.getResourcePath());
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(ApiResponse.error(HttpStatus.NOT_FOUND, ErrorCodes.ROUTE_NOT_FOUND,
+            "No endpoint for " + ex.getResourcePath()));
   }
 
   @ExceptionHandler(FileUploadException.class)

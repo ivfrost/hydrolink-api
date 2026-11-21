@@ -25,6 +25,7 @@ public final class ErrorCodes {
 
   // Validation
   public static final String VALIDATION_FAILED = "VALIDATION_FAILED";
+  public static final String ROUTE_NOT_FOUND = "ROUTE_NOT_FOUND";
   public static final String JSON_PROCESSING_ERROR = "JSON_PROCESSING_ERROR";
   public static final String JSON_MAPPING_ERROR = "JSON_MAPPING_ERROR";
 
