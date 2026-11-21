@@ -1,10 +1,14 @@
 package dev.ivfrost.hydro_backend.config;
 
+import io.minio.BucketExistsArgs;
+import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -37,7 +41,22 @@ public class MinioConfig {
           DefaultCredentialsProvider.builder().build()));
     }
 
-    // Don't check for buckets or attempt to provision them, it's an infrastructure concern
     return builder.build();
+  }
+
+  @Bean
+  @Profile("dev")
+  public ApplicationRunner localBucketInitializer(MinioClient minioClient) {
+    return args -> {
+      String bucket = minioProperties.bucketName();
+      try {
+        if (!minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build())) {
+          minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
+          log.info("Created local MinIO bucket {}", bucket);
+        }
+      } catch (Exception e) {
+        log.warn("Could not ensure local MinIO bucket {}: {}", bucket, e.getMessage());
+      }
+    };
   }
 }
