@@ -21,7 +21,6 @@ import org.hibernate.validator.constraints.URL;
         | action            | required fields           |
         |-------------------|---------------------------|
         | SET_SECRET        | secret                    |
-        | SET_TYPE          | type                      |
         | SET_NAME          | name                      |
         | SET_DESCRIPTION   | description               |
         | SET_IMAGE         | imageUrl                  |
@@ -60,12 +59,6 @@ public record DeviceCommandRequest(
         example = "30000")
     @Positive
     Long durationMs,
-
-    @Schema(
-        description = "Station type (SET_TYPE)",
-        example = "irrigation")
-    @Size(max = 64)
-    String type,
 
     @Schema(
         description = "Station name (SET_NAME)",

@@ -9,7 +9,6 @@ public enum DeviceCommandAction {
   GET_STATUS("GetStatus"),
   GET_ALL_STATUS("GetAllStatus"),
   SET_SECRET("SetSecret"),
-  SET_TYPE("SetType"),
   SET_NAME("SetName"),
   SET_DESCRIPTION("SetDescription"),
   SET_IMAGE("SetImage"),
