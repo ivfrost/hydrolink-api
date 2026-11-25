@@ -5,7 +5,7 @@ import java.time.Instant;
 public record OtaUpdateRecord(
     long id,
     String version,
-    String technicalName,
+    String sku,
     String objectKey,
     String sha256,
     long sizeBytes,

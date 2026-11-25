@@ -15,7 +15,7 @@ public record DeviceResponse(
     @NotNull String locationLabel,
     @NotNull String locationCoordinates,
     @NotNull String firmware,
-    @NotNull String technicalName,
+    @NotNull String sku,
     @NotNull String description,
     @NotNull String imageUrl,
     @NotNull String ip,

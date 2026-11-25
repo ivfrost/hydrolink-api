@@ -15,6 +15,8 @@ public final class ErrorCodes {
   public static final String DEVICE_NOT_FOUND = "DEVICE_NOT_FOUND";
   public static final String DEVICE_LINK_FAILED = "DEVICE_LINK_FAILED";
   public static final String DEVICE_FETCH_FAILED = "DEVICE_FETCH_FAILED";
+  public static final String DEVICE_SKU_UNKNOWN = "DEVICE_SKU_UNKNOWN";
+  public static final String DEVICE_SKU_CONFLICT = "DEVICE_SKU_CONFLICT";
   public static final String SCHEDULE_NOT_FOUND = "SCHEDULE_NOT_FOUND";
   public static final String PINS_NOT_PERSISTED = "PINS_NOT_PERSISTED";
   public static final String PINS_NOT_PROVIDED = "PINS_NOT_PROVIDED";

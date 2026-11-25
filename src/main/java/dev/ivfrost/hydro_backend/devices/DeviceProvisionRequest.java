@@ -2,6 +2,7 @@ package dev.ivfrost.hydro_backend.devices;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
@@ -9,12 +10,16 @@ import org.springframework.aot.hint.RuntimeHintsRegistrar;
 import org.springframework.context.annotation.ImportRuntimeHints;
 
 public record DeviceProvisionRequest(
-    @Schema(example = "v2.1.0", description = "Firmware version of the device")
+    @Schema(example = "1.0.0", description = "Firmware version of the device")
     @Size(max = 20)
+    @NotBlank
     String firmware,
-    @Schema(example = "hydrolink-core-1", description = "Technical name of the device")
+    @Schema(
+        example = "HELTEC-ESP32S3-LORA-V4-16M-8R",
+        description = "Hardware SKU, must exist in the device_skus catalog")
     @Size(max = 40)
-    String technicalName,
+    @NotBlank
+    String sku,
     @Schema(example = "HYDRO-26AX89", description = "Unique key identifying the device, must be exactly 12 characters")
     @Size(max = 12, min = 12)
     String key,

@@ -53,11 +53,11 @@ public class StorageService {
 
   /**
    * Uploads a firmware binary under a deterministic, reconstructible object key:
-   * {@code firmware/{technicalName}/{version}.bin}. Because the key contains no random
+   * {@code firmware/{sku}/{version}.bin}. Because the key contains no random
    * UUID, it can be recomputed later to mint fresh presigned URLs for re-dispatch.
    */
-  public UploadResponse uploadFirmwareFile(MultipartFile file, String technicalName, String version) {
-    String objectKey = "firmware/" + technicalName + "/" + version + ".bin";
+  public UploadResponse uploadFirmwareFile(MultipartFile file, String sku, String version) {
+    String objectKey = "firmware/" + sku + "/" + version + ".bin";
     return storeFile(file, objectKey);
   }
 

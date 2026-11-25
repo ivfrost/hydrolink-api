@@ -17,7 +17,7 @@ public interface DeviceMapper {
   Device deviceProvisionRequestToDevice(DeviceProvisionRequest deviceProvisionRequest);
 
   // Ignore manually validated properties
-  @Mapping(target = "technicalName", ignore = true)
+  @Mapping(target = "sku", ignore = true)
   @Mapping(target = "firmware", ignore = true)
   @Mapping(target = "userId", ignore = true)
   void updateDeviceFromRequest(DeviceUpdateRequest req, @MappingTarget Device device);

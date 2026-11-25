@@ -16,9 +16,11 @@ import dev.ivfrost.hydro_backend.devices.DeviceLinkException;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceMapper;
 import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
+import dev.ivfrost.hydro_backend.devices.DeviceProvisionedEvent;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionRequest;
 import dev.ivfrost.hydro_backend.devices.DeviceProvisionResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceResponse;
+import dev.ivfrost.hydro_backend.devices.DeviceSkuException;
 import dev.ivfrost.hydro_backend.devices.DeviceUpdateRequest;
 import jakarta.persistence.EntityNotFoundException;
 import java.nio.charset.StandardCharsets;
@@ -41,6 +43,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -89,6 +92,8 @@ public class DeviceService {
       .build();
   private final RedisTemplate<String, Object> redisTemplate;
   private final DeviceControlPlaneService deviceControlPlaneService;
+  private final DeviceSkuRepository deviceSkuRepository;
+  private final ApplicationEventPublisher eventPublisher;
 
   /**
    * Registers a device record in this service and generates an ownership secret for linking.
@@ -107,6 +112,7 @@ public class DeviceService {
   })
   public DeviceProvisionResponse provisionDevice(DeviceProvisionRequest req) {
 
+    requireKnownSkuAndSameSku(req);
     Device device = deviceMapper.deviceProvisionRequestToDevice(req);
 
     // Generate and encrypt the device secret. The fingerprint is a deterministic
@@ -116,22 +122,9 @@ public class DeviceService {
     device.setSecretFingerprint(encryptionUtil.fingerprint(rawSecret));
     Device saved = deviceRepository.save(device);
 
-    // Create the AWS IoT policy for the device which will be attached/unattached on link/unlink
-    // to a Cognito ID. Deferred until the transaction actually commits, so a rollback later in
-    // this method never leaves AWS state for a device row that ends up not existing.
-    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-      @Override
-      public void afterCommit() {
-        try {
-          deviceControlPlaneService.createDevicePolicy(req.key());
-        } catch (Exception e) {
-          // Creating policy failed and the device row is already committed and permanent at this
-          // point. But createDevicePolicy is idempotent, so retrying later is safe.
-          log.error("Failed to create IoT policy for device {} after commit. "
-              + "Device row exists but has no policy yet.", req.key(), e);
-        }
-      }
-    });
+    // The policy must exist before the device can be linked. An after-commit async
+    // listener creates it, so the response never waits on AWS. Link also repairs it.
+    eventPublisher.publishEvent(new DeviceProvisionedEvent(req.key()));
 
     // Return device details along with the raw secret
     return deviceMapper.deviceToDeviceProvisionResponse(saved, rawSecret);
@@ -167,6 +160,7 @@ public class DeviceService {
       throw new BadCredentialsException("Invalid provisioning token");
     }
 
+    requireKnownSkuAndSameSku(req);
     Device device = deviceMapper.deviceProvisionRequestToDevice(req);
 
     // Generate and encrypt the device secret. The fingerprint is a deterministic
@@ -175,32 +169,49 @@ public class DeviceService {
     device.setSecret(encryptionUtil.encrypt(rawSecret));
     device.setSecretFingerprint(encryptionUtil.fingerprint(rawSecret));
 
-    // Save device
+    // Save device. The upsert never updates the sku column.
     deviceRepository.upsert(device);
 
     // Retrieve the saved device
     Device saved = deviceRepository.findByKey(device.getKey())
         .orElseThrow(() -> new EntityNotFoundException("Device not found after upsert"));
 
-    // Create the AWS IoT policy for the device which will be attached/unattached on link/unlink
-    // to a Cognito ID. Deferred until the transaction actually commits, so a rollback later in
-    // this method never leaves AWS state for a device row that ends up not existing.
-    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-      @Override
-      public void afterCommit() {
-        try {
-          deviceControlPlaneService.createDevicePolicy(req.key());
-        } catch (Exception e) {
-          // Creating policy failed and the device row is already committed and permanent at this
-          // point. But createDevicePolicy is idempotent, so retrying later is safe.
-          log.error("Failed to create IoT policy for device {} after commit. "
-              + "Device row exists but has no policy yet.", req.key(), e);
-        }
-      }
-    });
+    // The policy must exist before the device can be linked. An after-commit async
+    // listener creates it, so the response never waits on AWS. Link also repairs it.
+    eventPublisher.publishEvent(new DeviceProvisionedEvent(req.key()));
 
     // Return device details along with the raw secret
     return deviceMapper.deviceToDeviceProvisionResponse(saved, rawSecret);
+  }
+
+  /**
+   * Rejects an SKU that is missing from the catalog and a re-provision that would change
+   * the SKU of an existing row.
+   */
+  private void requireKnownSkuAndSameSku(DeviceProvisionRequest req) {
+    if (!deviceSkuRepository.existsById(req.sku())) {
+      throw DeviceSkuException.unknown(req.sku());
+    }
+    deviceRepository.findByKey(req.key()).ifPresent(existing -> {
+      if (!req.sku().equals(existing.getSku())) {
+        throw DeviceSkuException.mismatch(req.key(), existing.getSku(), req.sku());
+      }
+    });
+  }
+
+  /**
+   * Creates the AWS IoT policy after the provisioning transaction commits, on the async
+   * pool. The link flow calls {@code ensureAndAttachDevicePolicy} as the repair path.
+   */
+  @Async
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  public void handleDeviceProvisioned(DeviceProvisionedEvent event) {
+    try {
+      deviceControlPlaneService.createDevicePolicy(event.deviceKey());
+    } catch (Exception e) {
+      log.error("Failed to create IoT policy for device {} after commit. "
+          + "Link will retry policy creation.", event.deviceKey(), e);
+    }
   }
 
   /**
@@ -378,22 +389,18 @@ public class DeviceService {
       throws AccessDeniedException {
     Device device = requireDeviceByKey(deviceKey);
 
-    String technicalName = req.technicalName();
     String firmware = req.firmware();
     UUID originalUserId = device.getUserId();
 
     // Verify ownership and guard against non-admin users trying to update restricted fields
     if (!isAdmin) {
       verifyDeviceOwnership(requestingUserId, deviceKey);
-      if (technicalName != null || firmware != null || newUserId != null) {
-        throw new AccessDeniedException("Non-admin users cannot update technicalName, firmware, or userId");
+      if (firmware != null || newUserId != null) {
+        throw new AccessDeniedException("Non-admin users cannot update firmware or userId");
       }
     }
 
-    // Restricted fields: technicalName, firmware, userId
-    if (technicalName != null && !technicalName.isEmpty()) {
-      device.setTechnicalName(technicalName);
-    }
+    // Restricted fields: firmware, userId. The sku is immutable and not a request field.
     if (firmware != null && !firmware.isEmpty()) {
       device.setFirmware(firmware);
     }
@@ -674,7 +681,7 @@ public class DeviceService {
   }
 
   /**
-   * Dispatches the OTA update command to devices matching the update's technical name.
+   * Dispatches the OTA update command to devices matching the update's SKU.
    *
    * <p>A fresh presigned URL is minted from the stored object key on every dispatch so
    * expired URLs don't strand devices. Devices whose firmware is already at least as
@@ -689,17 +696,17 @@ public class DeviceService {
   @Transactional
   public void dispatchOtaUpdate(OtaUpdateRecord update) {
     if (update.objectKey() == null) {
-      log.warn("OTA update {} v{} has no object key; nothing to dispatch", update.technicalName(), update.version());
+      log.warn("OTA update {} v{} has no object key; nothing to dispatch", update.sku(), update.version());
       return;
     }
 
-    log.info("Dispatching OTA update: {} v{} objectKey={}", update.technicalName(), update.version(), update.objectKey());
+    log.info("Dispatching OTA update: {} v{} objectKey={}", update.sku(), update.version(), update.objectKey());
     String binUrl = otaUpdateService.generatePresignedUrl(update.objectKey());
 
-    // Get all devices with matching technical name
-    List<Device> devices = deviceRepository.findAllByTechnicalName(update.technicalName());
+    // Get all devices with matching SKU
+    List<Device> devices = deviceRepository.findAllBySku(update.sku());
     if (devices.isEmpty()) {
-      log.info("No devices found with technical name {} for OTA update", update.technicalName());
+      log.info("No devices found with SKU {} for OTA update", update.sku());
       return;
     }
 
@@ -781,11 +788,11 @@ public class DeviceService {
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void handleOTAFileUploaded(OTAFileUploadEvent event) {
     log.info("OTA file uploaded: {} v{} forceInstall={}",
-        event.getTechnicalName(), event.getFirmwareVersion(), event.isForceInstall());
-    otaUpdateService.getLatestByTechnicalName(event.getTechnicalName())
+        event.getSku(), event.getFirmwareVersion(), event.isForceInstall());
+    otaUpdateService.getLatestBySku(event.getSku())
         .ifPresentOrElse(
             this::dispatchOtaUpdate,
-            () -> log.warn("No persisted OTA update found for {}; nothing to dispatch", event.getTechnicalName()));
+            () -> log.warn("No persisted OTA update found for {}; nothing to dispatch", event.getSku()));
   }
 
   /**

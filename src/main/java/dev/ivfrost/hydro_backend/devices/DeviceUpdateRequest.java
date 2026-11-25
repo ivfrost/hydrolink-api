@@ -14,12 +14,6 @@ public record DeviceUpdateRequest(
     @Size(max = 40)
     String friendlyName,
     @Schema(
-        example = "hydrolink-core-1",
-        description = "The technical identifier for the device."
-    )
-    @Size(max = 40)
-    String technicalName,
-    @Schema(
         example = "v1.2.3",
         description = "The firmware version currently installed on the device."
     )

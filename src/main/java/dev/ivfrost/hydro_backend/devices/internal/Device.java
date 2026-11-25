@@ -34,7 +34,10 @@ import org.hibernate.annotations.UpdateTimestamp;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "devices", indexes = @Index(columnList = "user_id"))
+@Table(name = "devices", indexes = {
+    @Index(columnList = "user_id"),
+    @Index(name = "idx_devices_sku", columnList = "sku")
+})
 @Entity
 public class Device implements Serializable {
 
@@ -73,9 +76,10 @@ public class Device implements Serializable {
   @Column(name = "last_ota_update_id")
   private Long lastOtaUpdateId;
 
+  /** Immutable hardware SKU, validated against {@code device_skus} at provisioning. */
   @Size(max = 40)
-  @Column(name = "technical_name", nullable = false)
-  private String technicalName;
+  @Column(name = "sku", nullable = false)
+  private String sku;
 
   // Secret is stored encrypted in the database (AES-GCM, random IV)
   @Size(max = 255)

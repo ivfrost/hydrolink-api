@@ -48,23 +48,23 @@ public class StorageController {
   public ResponseEntity<ApiResponse<UploadResponse>> uploadFirmwareFile(
       @Parameter(description = "Binary file stream sent from client app", schema = @Schema(type = "string", format = "binary"))
       @RequestPart("file") MultipartFile file,
-      @Parameter(description = "Technical name of the firmware being uploaded", example = "hydro_firmware_v1")
-      @RequestParam("technicalName") @NotBlank String technicalName,
+      @Parameter(description = "Hardware SKU of the firmware being uploaded", example = "HELTEC-ESP32S3-LORA-V4-16M-8R")
+      @RequestParam("sku") @NotBlank String sku,
       @Parameter(description = "Version of the firmware being uploaded", example = "1.0.0")
       @RequestParam("version") @NotBlank String version,
       @Parameter(description = "Force devices to install even when already on this version")
       @RequestParam(value = "forceInstall", defaultValue = "false") boolean forceInstall) {
 
-    UploadResponse uploadResponse = storageService.uploadFirmwareFile(file, technicalName, version);
+    UploadResponse uploadResponse = storageService.uploadFirmwareFile(file, sku, version);
 
     // Persist the update and publish the OTA event inside the same transaction. The
     // listener only fires after commit, so a failed write never notifies devices.
-    otaUpdateService.recordFirmwareUpload(technicalName, version, forceInstall, uploadResponse);
+    otaUpdateService.recordFirmwareUpload(sku, version, forceInstall, uploadResponse);
 
     return ResponseEntity.ok(
         ApiResponse.success(
             HttpStatus.OK,
-            "Firmware file uploaded successfully for " + technicalName + " version " + version,
+            "Firmware file uploaded successfully for " + sku + " version " + version,
             uploadResponse
         )
     );

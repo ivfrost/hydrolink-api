@@ -6,6 +6,7 @@ import dev.ivfrost.hydro_backend.common.ApiResponse;
 import dev.ivfrost.hydro_backend.devices.DeviceFetchException;
 import dev.ivfrost.hydro_backend.devices.DeviceLinkException;
 import dev.ivfrost.hydro_backend.devices.DeviceNotFoundException;
+import dev.ivfrost.hydro_backend.devices.DeviceSkuException;
 import dev.ivfrost.hydro_backend.devices.PinsNotPersistedException;
 import dev.ivfrost.hydro_backend.devices.PinsNotProvidedException;
 import dev.ivfrost.hydro_backend.devices.ScheduleNotFoundException;
@@ -111,6 +112,16 @@ public class GlobalExceptionHandler {
     log.warn("Device link failed: {}", ex.getMessage());
     return ResponseEntity.badRequest()
         .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ErrorCodes.DEVICE_LINK_FAILED, ex.getMessage()));
+  }
+
+  @ExceptionHandler(DeviceSkuException.class)
+  public ResponseEntity<ApiResponse<Void>> handleDeviceSku(DeviceSkuException ex) {
+    HttpStatus status = ex.getStatus();
+    String code = status == HttpStatus.CONFLICT
+        ? ErrorCodes.DEVICE_SKU_CONFLICT
+        : ErrorCodes.DEVICE_SKU_UNKNOWN;
+    log.warn("Device SKU check failed: {}", ex.getMessage());
+    return ResponseEntity.status(status).body(ApiResponse.error(status, code, ex.getMessage()));
   }
 
   @ExceptionHandler(DeviceFetchException.class)

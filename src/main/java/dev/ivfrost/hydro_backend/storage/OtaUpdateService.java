@@ -15,24 +15,23 @@ public interface OtaUpdateService {
    * {@code AFTER_COMMIT} transactional event listeners), so a failed write never triggers a
    * spurious device notification.
    *
-   * @param technicalName technical name of the firmware
-   * @param version       the published firmware version
-   * @param upload        the upload result produced by
-   *                      {@link dev.ivfrost.hydro_backend.storage.internal.StorageService}
+   * @param sku      hardware SKU of the firmware
+   * @param version  the published firmware version
+   * @param upload   the upload result produced by
+   *                 {@link dev.ivfrost.hydro_backend.storage.internal.StorageService}
    */
   void recordFirmwareUpload(
-      String technicalName, String version, boolean forceInstall, UploadResponse upload);
+      String sku, String version, boolean forceInstall, UploadResponse upload);
 
   /**
-   * Returns the most recently published OTA update for the given technical name.
+   * Returns the most recently published OTA update for the given SKU.
    */
-  Optional<OtaUpdateRecord> getLatestByTechnicalName(String technicalName);
+  Optional<OtaUpdateRecord> getLatestBySku(String sku);
 
   /**
-   * Returns the most recent OTA update for each technical name that has at least one
-   * published update.
+   * Returns the most recent OTA update for each SKU that has at least one published update.
    */
-  List<OtaUpdateRecord> getLatestUpdatesPerTechnicalName();
+  List<OtaUpdateRecord> getLatestUpdatesPerSku();
 
   /**
    * Mints a fresh presigned GET URL for the stored object, rewritten to the externally

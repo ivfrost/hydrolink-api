@@ -22,10 +22,10 @@ public class OtaUpdateServiceImpl implements OtaUpdateService {
   @Override
   @Transactional
   public void recordFirmwareUpload(
-      String technicalName, String version, boolean forceInstall, UploadResponse upload) {
+      String sku, String version, boolean forceInstall, UploadResponse upload) {
     OtaUpdate saved = otaUpdateRepository.save(OtaUpdate.builder()
         .version(version)
-        .technicalName(technicalName)
+        .sku(sku)
         .objectKey(upload.objectKey())
         .sha256(upload.sha256())
         .sizeBytes(upload.sizeBytes())
@@ -35,20 +35,20 @@ public class OtaUpdateServiceImpl implements OtaUpdateService {
     // Publish inside the transaction; @TransactionalEventListener(AFTER_COMMIT)
     // listeners receive it only once the write above has committed.
     eventPublisher.publishEvent(
-        new OTAFileUploadEvent(technicalName, version, forceInstall));
+        new OTAFileUploadEvent(sku, version, forceInstall));
 
     toRecord(saved);
   }
 
   @Override
-  public Optional<OtaUpdateRecord> getLatestByTechnicalName(String technicalName) {
-    return otaUpdateRepository.findLatestByTechnicalName(technicalName)
+  public Optional<OtaUpdateRecord> getLatestBySku(String sku) {
+    return otaUpdateRepository.findLatestBySku(sku)
         .map(this::toRecord);
   }
 
   @Override
-  public List<OtaUpdateRecord> getLatestUpdatesPerTechnicalName() {
-    return otaUpdateRepository.findLatestPerTechnicalName().stream()
+  public List<OtaUpdateRecord> getLatestUpdatesPerSku() {
+    return otaUpdateRepository.findLatestPerSku().stream()
         .map(this::toRecord)
         .toList();
   }
@@ -62,7 +62,7 @@ public class OtaUpdateServiceImpl implements OtaUpdateService {
     return new OtaUpdateRecord(
         update.getId(),
         update.getVersion(),
-        update.getTechnicalName(),
+        update.getSku(),
         update.getObjectKey(),
         update.getSha256(),
         update.getSizeBytes(),

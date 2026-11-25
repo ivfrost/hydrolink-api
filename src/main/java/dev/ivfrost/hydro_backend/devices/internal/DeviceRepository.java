@@ -14,13 +14,12 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 
   @Modifying
   @Query(value = """
-    INSERT INTO devices (mac_address, key, firmware, technical_name, secret, secret_fingerprint, created_at, updated_at)
-    VALUES (:#{#d.macAddress}, :#{#d.key}, :#{#d.firmware}, :#{#d.technicalName}, :#{#d.secret}, :#{#d.secretFingerprint}, NOW(), NOW())
+    INSERT INTO devices (mac_address, key, firmware, sku, secret, secret_fingerprint, created_at, updated_at)
+    VALUES (:#{#d.macAddress}, :#{#d.key}, :#{#d.firmware}, :#{#d.sku}, :#{#d.secret}, :#{#d.secretFingerprint}, NOW(), NOW())
     ON CONFLICT (mac_address)
     DO UPDATE SET
       key = EXCLUDED.key,
       firmware = EXCLUDED.firmware,
-      technical_name = EXCLUDED.technical_name,
       secret = EXCLUDED.secret,
       secret_fingerprint = EXCLUDED.secret_fingerprint,
       updated_at = NOW()
@@ -29,7 +28,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 
   Page<Device> findAllByUserId(UUID userId, Pageable pageable);
 
-  List<Device> findAllByTechnicalName(String technicalName);
+  List<Device> findAllBySku(String sku);
 
   Optional<Device> findBySecretFingerprint(String secretFingerprint);
 

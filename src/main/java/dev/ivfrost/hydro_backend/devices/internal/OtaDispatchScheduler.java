@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Safety net for firmware updates: re-dispatches the latest persisted OTA update for every
- * technical name that has one, targeting only devices whose firmware is behind.
+ * SKU that has one, targeting only devices whose firmware is behind.
  *
  * <p>Devices that were offline when a firmware was first published miss the initial MQTT
  * command. This scheduled job re-runs the same {@link DeviceService#dispatchOtaUpdate}
@@ -26,12 +26,12 @@ public class OtaDispatchScheduler {
   @Scheduled(fixedDelay = 15 * 60 * 1000L, initialDelay = 30_000L)
   public void redispatchLatestFirmwareUpdates() {
     log.info("Running scheduled OTA re-dispatch sweep");
-    var latestUpdates = otaUpdateService.getLatestUpdatesPerTechnicalName();
+    var latestUpdates = otaUpdateService.getLatestUpdatesPerSku();
     if (latestUpdates.isEmpty()) {
       log.debug("No persisted OTA updates to re-dispatch");
       return;
     }
     latestUpdates.forEach(deviceService::dispatchOtaUpdate);
-    log.info("Scheduled OTA re-dispatch sweep finished ({} technical names)", latestUpdates.size());
+    log.info("Scheduled OTA re-dispatch sweep finished ({} SKUs)", latestUpdates.size());
   }
 }

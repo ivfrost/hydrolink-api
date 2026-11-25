@@ -5,7 +5,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Size;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
@@ -19,7 +21,8 @@ import org.hibernate.annotations.CreationTimestamp;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "ota_updates")
+@Table(name = "ota_updates", indexes = @Index(
+    name = "idx_ota_updates_sku", columnList = "sku, created_at"))
 @Entity
 public class OtaUpdate implements Serializable {
 
@@ -33,8 +36,9 @@ public class OtaUpdate implements Serializable {
   @Column(nullable = false)
   private String version;
 
-  @Column(name = "technical_name", nullable = false)
-  private String technicalName;
+  @Size(max = 40)
+  @Column(name = "sku", nullable = false)
+  private String sku;
 
   @Column(name = "object_key", nullable = false)
   private String objectKey;

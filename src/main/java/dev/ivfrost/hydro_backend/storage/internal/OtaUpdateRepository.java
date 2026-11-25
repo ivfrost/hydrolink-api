@@ -8,23 +8,23 @@ import org.springframework.data.jpa.repository.Query;
 public interface OtaUpdateRepository extends JpaRepository<OtaUpdate, Long> {
 
   /**
-   * Returns the most recently published OTA update for the given technical name.
+   * Returns the most recently published OTA update for the given SKU.
    */
   @Query(value = """
       SELECT * FROM ota_updates
-      WHERE technical_name = :technicalName
+      WHERE sku = :sku
       ORDER BY created_at DESC, id DESC
       LIMIT 1
       """, nativeQuery = true)
-  Optional<OtaUpdate> findLatestByTechnicalName(String technicalName);
+  Optional<OtaUpdate> findLatestBySku(String sku);
 
   /**
-   * Returns the most recent OTA update for every technical name that has at least one update.
+   * Returns the most recent OTA update for every SKU that has at least one update.
    */
   @Query(value = """
-      SELECT DISTINCT ON (technical_name) *
+      SELECT DISTINCT ON (sku) *
       FROM ota_updates
-      ORDER BY technical_name, created_at DESC, id DESC
+      ORDER BY sku, created_at DESC, id DESC
       """, nativeQuery = true)
-  List<OtaUpdate> findLatestPerTechnicalName();
+  List<OtaUpdate> findLatestPerSku();
 }

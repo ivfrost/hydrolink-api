@@ -7,8 +7,6 @@ import java.util.UUID;
 public record AdminDeviceUpdateRequest(
     @Size(max = 40)
     String friendlyName,
-    @Size(max = 40)
-    String technicalName,
     @Size(max = 20)
     String firmware,
     @Size(max = 255)
