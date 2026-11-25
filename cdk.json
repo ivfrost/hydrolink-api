@@ -13,6 +13,10 @@
     ]
   },
   "context": {
+    "userPoolId": "eu-west-1_qJxtdtpP9",
+    "userPoolClientId": "2i6g183l48dtpiamlsih0tcahl",
+    "identityPoolId": "eu-west-1:45bcf106-35e7-4651-97c8-d97b07c5a108",
+    "certificateArn": "arn:aws:acm:eu-west-1:468241617065:certificate/c0a2efe1-e73c-4f6c-aa46-455c4f07c030",
     "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
     "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": true,
     "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,

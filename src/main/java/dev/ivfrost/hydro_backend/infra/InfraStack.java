@@ -59,12 +59,13 @@ public class InfraStack extends Stack {
   public InfraStack(final Construct scope, final String id, final StackProps props) {
     super(scope, id, props);
 
+    // Environment-specific identifiers come from CDK context. Defaults live in cdk.json
+    // under "context"; override per account/region with `cdk deploy -c key=value`.
     final String BUCKET_NAME = "hydrolink-storage";
-    final String USER_POOL_ID = "eu-west-1_qJxtdtpP9";
-    final String USER_POOL_CLIENT_ID = "2i6g183l48dtpiamlsih0tcahl";
-    final String IDENTITY_POOL_ID = "eu-west-1:45bcf106-35e7-4651-97c8-d97b07c5a108";
-    final String CERT_ARN =
-        "arn:aws:acm:eu-west-1:468241617065:certificate/c0a2efe1-e73c-4f6c-aa46-455c4f07c030";
+    final String USER_POOL_ID = requiredContext("userPoolId");
+    final String USER_POOL_CLIENT_ID = requiredContext("userPoolClientId");
+    final String IDENTITY_POOL_ID = requiredContext("identityPoolId");
+    final String CERT_ARN = requiredContext("certificateArn");
     // Image tag from CDK context: `cdk deploy -c imageTag=$(git rev-parse --short HEAD)`.
     // Required on purpose: without a changing tag, an unchanged task definition means
     // `cdk deploy` will not roll out a newly pushed image (the stale-:latest trap), and a
@@ -360,5 +361,18 @@ public class InfraStack extends Stack {
         .value("https://" + service.getLoadBalancer().getLoadBalancerDnsName())
         .description("Public URL of the hydrolink API")
         .build();
+  }
+
+  private String requiredContext(final String key) {
+    Object value = this.getNode().tryGetContext(key);
+    if (!(value instanceof String string) || string.isBlank()) {
+      throw new IllegalArgumentException(
+          "Missing required CDK context '"
+              + key
+              + "'. Set it under \"context\" in cdk.json or pass -c "
+              + key
+              + "=<value>.");
+    }
+    return string;
   }
 }

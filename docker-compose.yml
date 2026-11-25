@@ -41,7 +41,7 @@ services:
       - hydro-network
 
   minio:
-    image: minio/minio
+    image: pgsty/silo:latest
     container_name: minio_dev
     restart: on-failure:3
     environment:
@@ -75,7 +75,6 @@ services:
     restart: on-failure:3
     ports:
       - "9324:9324"
-      - "9325:9325" # web UI
     networks:
       - hydro-network
 
